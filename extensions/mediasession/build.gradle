@@ -16,7 +16,7 @@ apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion project.ext.compileSdkVersion
-    buildToolsVersion project.ext.buildToolsVersion
+    //buildToolsVersion project.ext.buildToolsVersion
 
     defaultConfig {
         minSdkVersion project.ext.minSdkVersion
@@ -27,6 +27,7 @@ android {
 dependencies {
     compile project(modulePrefix + 'library-core')
     compile 'com.android.support:support-media-compat:' + supportLibraryVersion
+    compile 'com.android.support:appcompat-v7:' + supportLibraryVersion
 }
 
 ext {

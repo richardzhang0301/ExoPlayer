@@ -64,6 +64,7 @@ import java.util.List;
   private CompositeSequenceableLoader sequenceableLoader;
   private DashManifest manifest;
   private int periodIndex;
+  private List<AdaptationSet> adaptationSets;
 
   public DashMediaPeriod(int id, DashManifest manifest, int periodIndex,
       DashChunkSource.Factory chunkSourceFactory,  int minLoadableRetryCount,
@@ -80,8 +81,8 @@ import java.util.List;
     this.allocator = allocator;
     sampleStreams = newSampleStreamArray(0);
     sequenceableLoader = new CompositeSequenceableLoader(sampleStreams);
-    Pair<TrackGroupArray, TrackGroupInfo[]> result =
-        buildTrackGroups(manifest.getPeriod(periodIndex).adaptationSets);
+    adaptationSets = manifest.getPeriod(periodIndex).adaptationSets;
+    Pair<TrackGroupArray, TrackGroupInfo[]> result = buildTrackGroups(adaptationSets);
     trackGroups = result.first;
     trackGroupInfos = result.second;
   }
@@ -89,6 +90,7 @@ import java.util.List;
   public void updateManifest(DashManifest manifest, int periodIndex) {
     this.manifest = manifest;
     this.periodIndex = periodIndex;
+    adaptationSets = manifest.getPeriod(periodIndex).adaptationSets;
     if (sampleStreams != null) {
       for (ChunkSampleStream<DashChunkSource> sampleStream : sampleStreams) {
         sampleStream.getChunkSource().updateManifest(manifest, periodIndex);

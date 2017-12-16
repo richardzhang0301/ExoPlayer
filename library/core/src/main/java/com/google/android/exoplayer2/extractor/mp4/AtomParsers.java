@@ -247,13 +247,7 @@ import java.util.List;
         remainingSamplesAtTimestampDelta--;
         if (remainingSamplesAtTimestampDelta == 0 && remainingTimestampDeltaChanges > 0) {
           remainingSamplesAtTimestampDelta = stts.readUnsignedIntToInt();
-          // The BMFF spec (ISO 14496-12) states that sample deltas should be unsigned integers
-          // in stts boxes, however some streams violate the spec and use signed integers instead.
-          // See https://github.com/google/ExoPlayer/issues/3384. It's safe to always decode sample
-          // deltas as signed integers here, because unsigned integers will still be parsed
-          // correctly (unless their top bit is set, which is never true in practice because sample
-          // deltas are always small).
-          timestampDeltaInTimeUnits = stts.readInt();
+          timestampDeltaInTimeUnits = stts.readUnsignedIntToInt();
           remainingTimestampDeltaChanges--;
         }
 
@@ -834,7 +828,7 @@ import java.util.List;
 
   private static void parseAudioSampleEntry(ParsableByteArray parent, int atomType, int position,
       int size, int trackId, String language, boolean isQuickTime, DrmInitData drmInitData,
-      StsdData out, int entryIndex) throws ParserException {
+      StsdData out, int entryIndex) {
     parent.setPosition(position + Atom.HEADER_SIZE + StsdData.STSD_HEADER_SIZE);
 
     int quickTimeSoundDescriptionVersion = 0;
@@ -1166,7 +1160,7 @@ import java.util.List;
   }
 
   /**
-   * Parses the proj box from sv3d box, as specified by https://github.com/google/spatial-media.
+   * Parses the proj box from sv3d box, as specified by https://github.com/google/spatial-media
    */
   private static byte[] parseProjFromParent(ParsableByteArray parent, int position, int size) {
     int childPosition = position + Atom.HEADER_SIZE;

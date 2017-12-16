@@ -166,7 +166,6 @@ public class FakeDataSource implements DataSource {
         // Do not allow crossing of the segment boundary.
         readLength = Math.min(readLength, current.length - current.bytesRead);
         // Perform the read and return.
-        Assertions.checkArgument(buffer.length - offset >= readLength);
         if (current.data != null) {
           System.arraycopy(current.data, current.bytesRead, buffer, offset, readLength);
         }
@@ -217,7 +216,7 @@ public class FakeDataSource implements DataSource {
     return dataSpecs;
   }
 
-  protected void onDataRead(int bytesRead) throws IOException {
+  protected void onDataRead(int bytesRead) {
     // Do nothing. Can be overridden.
   }
 

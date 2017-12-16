@@ -33,19 +33,27 @@ import java.util.Arrays;
 public final class MetadataRenderer extends BaseRenderer implements Callback {
 
   /**
-   * @deprecated Use {@link MetadataOutput}.
+   * Receives output from a {@link MetadataRenderer}.
    */
-  @Deprecated
-  public interface Output extends MetadataOutput {}
+  public interface Output {
+
+    /**
+     * Called each time there is a metadata associated with current playback time.
+     *
+     * @param metadata The metadata.
+     */
+    void onMetadata(Metadata metadata);
+
+  }
 
   private static final int MSG_INVOKE_RENDERER = 0;
   // TODO: Holding multiple pending metadata objects is temporary mitigation against
-  // https://github.com/google/ExoPlayer/issues/1874. It should be removed once this issue has been
-  // addressed.
+  // https://github.com/google/ExoPlayer/issues/1874
+  // It should be removed once this issue has been addressed.
   private static final int MAX_PENDING_METADATA_COUNT = 5;
 
   private final MetadataDecoderFactory decoderFactory;
-  private final MetadataOutput output;
+  private final Output output;
   private final Handler outputHandler;
   private final FormatHolder formatHolder;
   private final MetadataInputBuffer buffer;
@@ -65,7 +73,7 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
    *     {@link android.app.Activity#getMainLooper()}. Null may be passed if the output should be
    *     called directly on the player's internal rendering thread.
    */
-  public MetadataRenderer(MetadataOutput output, Looper outputLooper) {
+  public MetadataRenderer(Output output, Looper outputLooper) {
     this(output, outputLooper, MetadataDecoderFactory.DEFAULT);
   }
 
@@ -78,7 +86,7 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
    *     called directly on the player's internal rendering thread.
    * @param decoderFactory A factory from which to obtain {@link MetadataDecoder} instances.
    */
-  public MetadataRenderer(MetadataOutput output, Looper outputLooper,
+  public MetadataRenderer(Output output, Looper outputLooper,
       MetadataDecoderFactory decoderFactory) {
     super(C.TRACK_TYPE_METADATA);
     this.output = Assertions.checkNotNull(output);
@@ -92,11 +100,7 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
 
   @Override
   public int supportsFormat(Format format) {
-    if (decoderFactory.supportsFormat(format)) {
-      return supportsFormatDrm(null, format.drmInitData) ? FORMAT_HANDLED : FORMAT_UNSUPPORTED_DRM;
-    } else {
-      return FORMAT_UNSUPPORTED_TYPE;
-    }
+    return decoderFactory.supportsFormat(format) ? FORMAT_HANDLED : FORMAT_UNSUPPORTED_TYPE;
   }
 
   @Override

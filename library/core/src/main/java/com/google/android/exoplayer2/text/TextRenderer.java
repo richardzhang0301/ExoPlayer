@@ -37,15 +37,23 @@ import java.util.List;
  * <p>
  * {@link Subtitle}s are decoded from sample data using {@link SubtitleDecoder} instances obtained
  * from a {@link SubtitleDecoderFactory}. The actual rendering of the subtitle {@link Cue}s is
- * delegated to a {@link TextOutput}.
+ * delegated to an {@link Output}.
  */
 public final class TextRenderer extends BaseRenderer implements Callback {
 
   /**
-   * @deprecated Use {@link TextOutput}.
+   * Receives output from a {@link TextRenderer}.
    */
-  @Deprecated
-  public interface Output extends TextOutput {}
+  public interface Output {
+
+    /**
+     * Called each time there is a change in the {@link Cue}s.
+     *
+     * @param cues The {@link Cue}s.
+     */
+    void onCues(List<Cue> cues);
+
+  }
 
   @Retention(RetentionPolicy.SOURCE)
   @IntDef({REPLACEMENT_STATE_NONE, REPLACEMENT_STATE_SIGNAL_END_OF_STREAM,
@@ -71,7 +79,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private static final int MSG_UPDATE_OUTPUT = 0;
 
   private final Handler outputHandler;
-  private final TextOutput output;
+  private final Output output;
   private final SubtitleDecoderFactory decoderFactory;
   private final FormatHolder formatHolder;
 
@@ -93,7 +101,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
    *     using {@link android.app.Activity#getMainLooper()}. Null may be passed if the output
    *     should be called directly on the player's internal rendering thread.
    */
-  public TextRenderer(TextOutput output, Looper outputLooper) {
+  public TextRenderer(Output output, Looper outputLooper) {
     this(output, outputLooper, SubtitleDecoderFactory.DEFAULT);
   }
 
@@ -106,8 +114,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
    *     should be called directly on the player's internal rendering thread.
    * @param decoderFactory A factory from which to obtain {@link SubtitleDecoder} instances.
    */
-  public TextRenderer(TextOutput output, Looper outputLooper,
-      SubtitleDecoderFactory decoderFactory) {
+  public TextRenderer(Output output, Looper outputLooper, SubtitleDecoderFactory decoderFactory) {
     super(C.TRACK_TYPE_TEXT);
     this.output = Assertions.checkNotNull(output);
     this.outputHandler = outputLooper == null ? null : new Handler(outputLooper, this);
@@ -117,13 +124,9 @@ public final class TextRenderer extends BaseRenderer implements Callback {
 
   @Override
   public int supportsFormat(Format format) {
-    if (decoderFactory.supportsFormat(format)) {
-      return supportsFormatDrm(null, format.drmInitData) ? FORMAT_HANDLED : FORMAT_UNSUPPORTED_DRM;
-    } else if (MimeTypes.isText(format.sampleMimeType)) {
-      return FORMAT_UNSUPPORTED_SUBTYPE;
-    } else {
-      return FORMAT_UNSUPPORTED_TYPE;
-    }
+    return decoderFactory.supportsFormat(format) ? FORMAT_HANDLED
+        : (MimeTypes.isText(format.sampleMimeType) ? FORMAT_UNSUPPORTED_SUBTYPE
+        : FORMAT_UNSUPPORTED_TYPE);
   }
 
   @Override

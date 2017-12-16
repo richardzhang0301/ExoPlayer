@@ -15,7 +15,6 @@
  */
 package com.google.android.exoplayer2.ui;
 
-import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.Resources;
@@ -35,19 +34,20 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import com.google.android.exoplayer2.C;
-import com.google.android.exoplayer2.ControlDispatcher;
-import com.google.android.exoplayer2.DefaultControlDispatcher;
+import com.google.android.exoplayer2.ExoPlaybackException;
+import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
-import com.google.android.exoplayer2.Player.DiscontinuityReason;
 import com.google.android.exoplayer2.SimpleExoPlayer;
+import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.metadata.Metadata;
 import com.google.android.exoplayer2.metadata.id3.ApicFrame;
 import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.text.Cue;
-import com.google.android.exoplayer2.text.TextOutput;
+import com.google.android.exoplayer2.text.TextRenderer;
 import com.google.android.exoplayer2.trackselection.TrackSelection;
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout.ResizeMode;
+import com.google.android.exoplayer2.ui.PlaybackControlView.ControlDispatcher;
 import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.RepeatModeUtil;
 import com.google.android.exoplayer2.util.Util;
@@ -111,13 +111,6 @@ import java.util.List;
  *       <ul>
  *         <li>Corresponding method: None</li>
  *         <li>Default: {@code surface_view}</li>
- *       </ul>
- *   </li>
- *   <li><b>{@code shutter_background_color}</b> - The background color of the {@code exo_shutter}
- *       view.
- *       <ul>
- *         <li>Corresponding method: {@link #setShutterBackgroundColor(int)}</li>
- *         <li>Default: {@code unset}</li>
  *       </ul>
  *   </li>
  *   <li><b>{@code player_layout_id}</b> - Specifies the id of the layout to be inflated. See below
@@ -256,8 +249,6 @@ public final class SimpleExoPlayerView extends FrameLayout {
       return;
     }
 
-    boolean shutterColorSet = false;
-    int shutterColor = 0;
     int playerLayoutId = R.layout.exo_simple_player_view;
     boolean useArtwork = true;
     int defaultArtworkId = 0;
@@ -271,9 +262,6 @@ public final class SimpleExoPlayerView extends FrameLayout {
       TypedArray a = context.getTheme().obtainStyledAttributes(attrs,
           R.styleable.SimpleExoPlayerView, 0, 0);
       try {
-        shutterColorSet = a.hasValue(R.styleable.SimpleExoPlayerView_shutter_background_color);
-        shutterColor = a.getColor(R.styleable.SimpleExoPlayerView_shutter_background_color,
-              shutterColor);
         playerLayoutId = a.getResourceId(R.styleable.SimpleExoPlayerView_player_layout_id,
             playerLayoutId);
         useArtwork = a.getBoolean(R.styleable.SimpleExoPlayerView_use_artwork, useArtwork);
@@ -298,16 +286,13 @@ public final class SimpleExoPlayerView extends FrameLayout {
     setDescendantFocusability(FOCUS_AFTER_DESCENDANTS);
 
     // Content frame.
-    contentFrame = findViewById(R.id.exo_content_frame);
+    contentFrame = (AspectRatioFrameLayout) findViewById(R.id.exo_content_frame);
     if (contentFrame != null) {
       setResizeModeRaw(contentFrame, resizeMode);
     }
 
     // Shutter view.
     shutterView = findViewById(R.id.exo_shutter);
-    if (shutterView != null && shutterColorSet) {
-      shutterView.setBackgroundColor(shutterColor);
-    }
 
     // Create a surface view and insert it into the content frame, if there is one.
     if (contentFrame != null && surfaceType != SURFACE_TYPE_NONE) {
@@ -322,24 +307,24 @@ public final class SimpleExoPlayerView extends FrameLayout {
     }
 
     // Overlay frame layout.
-    overlayFrameLayout = findViewById(R.id.exo_overlay);
+    overlayFrameLayout = (FrameLayout) findViewById(R.id.exo_overlay);
 
     // Artwork view.
-    artworkView = findViewById(R.id.exo_artwork);
+    artworkView = (ImageView) findViewById(R.id.exo_artwork);
     this.useArtwork = useArtwork && artworkView != null;
     if (defaultArtworkId != 0) {
       defaultArtwork = BitmapFactory.decodeResource(context.getResources(), defaultArtworkId);
     }
 
     // Subtitle view.
-    subtitleView = findViewById(R.id.exo_subtitles);
+    subtitleView = (SubtitleView) findViewById(R.id.exo_subtitles);
     if (subtitleView != null) {
       subtitleView.setUserDefaultStyle();
       subtitleView.setUserDefaultTextSize();
     }
 
     // Playback control view.
-    PlaybackControlView customController = findViewById(R.id.exo_controller);
+    PlaybackControlView customController = (PlaybackControlView) findViewById(R.id.exo_controller);
     View controllerPlaceholder = findViewById(R.id.exo_controller_placeholder);
     if (customController != null) {
       this.controller = customController;
@@ -446,7 +431,7 @@ public final class SimpleExoPlayerView extends FrameLayout {
   public void setVisibility(int visibility) {
     super.setVisibility(visibility);
     if (surfaceView instanceof SurfaceView) {
-      // Work around https://github.com/google/ExoPlayer/issues/3160.
+      // Work around https://github.com/google/ExoPlayer/issues/3160
       surfaceView.setVisibility(visibility);
     }
   }
@@ -528,17 +513,6 @@ public final class SimpleExoPlayerView extends FrameLayout {
     }
   }
 
-  /**
-   * Sets the background color of the {@code exo_shutter} view.
-   *
-   * @param color The background color.
-   */
-  public void setShutterBackgroundColor(int color) {
-    if (shutterView != null) {
-      shutterView.setBackgroundColor(color);
-    }
-  }
-
   @Override
   public boolean dispatchKeyEvent(KeyEvent event) {
     if (player != null && player.isPlayingAd()) {
@@ -548,10 +522,8 @@ public final class SimpleExoPlayerView extends FrameLayout {
       overlayFrameLayout.requestFocus();
       return super.dispatchKeyEvent(event);
     }
-    boolean isDpadWhenControlHidden = isDpadKey(event.getKeyCode()) && useController
-        && !controller.isVisible();
     maybeShowController(true);
-    return isDpadWhenControlHidden || dispatchMediaKeyEvent(event) || super.dispatchKeyEvent(event);
+    return dispatchMediaKeyEvent(event) || super.dispatchKeyEvent(event);
   }
 
   /**
@@ -660,9 +632,9 @@ public final class SimpleExoPlayerView extends FrameLayout {
    * Sets the {@link ControlDispatcher}.
    *
    * @param controlDispatcher The {@link ControlDispatcher}, or null to use
-   *     {@link DefaultControlDispatcher}.
+   *     {@link PlaybackControlView#DEFAULT_CONTROL_DISPATCHER}.
    */
-  public void setControlDispatcher(@Nullable ControlDispatcher controlDispatcher) {
+  public void setControlDispatcher(ControlDispatcher controlDispatcher) {
     Assertions.checkState(controller != null);
     controller.setControlDispatcher(controlDispatcher);
   }
@@ -697,16 +669,6 @@ public final class SimpleExoPlayerView extends FrameLayout {
   public void setRepeatToggleModes(@RepeatModeUtil.RepeatToggleModes int repeatToggleModes) {
     Assertions.checkState(controller != null);
     controller.setRepeatToggleModes(repeatToggleModes);
-  }
-
-  /**
-   * Sets whether the shuffle button is shown.
-   *
-   * @param showShuffleButton Whether the shuffle button is shown.
-   */
-  public void setShowShuffleButton(boolean showShuffleButton) {
-    Assertions.checkState(controller != null);
-    controller.setShowShuffleButton(showShuffleButton);
   }
 
   /**
@@ -781,10 +743,6 @@ public final class SimpleExoPlayerView extends FrameLayout {
    * Shows the playback controls, but only if forced or shown indefinitely.
    */
   private void maybeShowController(boolean isForced) {
-    if (isPlayingAd()) {
-      // Never show the controller if an ad is currently playing.
-      return;
-    }
     if (useController) {
       boolean wasShowingIndefinitely = controller.isVisible() && controller.getShowTimeoutMs() <= 0;
       boolean shouldShowIndefinitely = shouldShowControllerIndefinitely();
@@ -809,10 +767,6 @@ public final class SimpleExoPlayerView extends FrameLayout {
     }
     controller.setShowTimeoutMs(showIndefinitely ? 0 : controllerShowTimeoutMs);
     controller.show();
-  }
-
-  private boolean isPlayingAd() {
-    return player != null && player.isPlayingAd() && player.getPlayWhenReady();
   }
 
   private void updateForCurrentTrackSelections() {
@@ -900,24 +854,16 @@ public final class SimpleExoPlayerView extends FrameLayout {
     logo.setBackgroundColor(resources.getColor(R.color.exo_edit_mode_background_color));
   }
 
+
   @SuppressWarnings("ResourceType")
   private static void setResizeModeRaw(AspectRatioFrameLayout aspectRatioFrame, int resizeMode) {
     aspectRatioFrame.setResizeMode(resizeMode);
   }
 
-  @SuppressLint("InlinedApi")
-  private boolean isDpadKey(int keyCode) {
-    return keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_UP_RIGHT
-        || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT || keyCode == KeyEvent.KEYCODE_DPAD_DOWN_RIGHT
-        || keyCode == KeyEvent.KEYCODE_DPAD_DOWN || keyCode == KeyEvent.KEYCODE_DPAD_DOWN_LEFT
-        || keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_UP_LEFT
-        || keyCode == KeyEvent.KEYCODE_DPAD_CENTER;
-  }
+  private final class ComponentListener implements SimpleExoPlayer.VideoListener,
+      TextRenderer.Output, Player.EventListener {
 
-  private final class ComponentListener extends Player.DefaultEventListener implements TextOutput,
-      SimpleExoPlayer.VideoListener {
-
-    // TextOutput implementation
+    // TextRenderer.Output implementation
 
     @Override
     public void onCues(List<Cue> cues) {
@@ -926,7 +872,7 @@ public final class SimpleExoPlayerView extends FrameLayout {
       }
     }
 
-    // SimpleExoPlayer.VideoInfoListener implementation
+    // SimpleExoPlayer.VideoListener implementation
 
     @Override
     public void onVideoSizeChanged(int width, int height, int unappliedRotationDegrees,
@@ -952,19 +898,38 @@ public final class SimpleExoPlayerView extends FrameLayout {
     // Player.EventListener implementation
 
     @Override
-    public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
-      if (isPlayingAd()) {
-        hideController();
-      } else {
-        maybeShowController(false);
-      }
+    public void onLoadingChanged(boolean isLoading) {
+      // Do nothing.
     }
 
     @Override
-    public void onPositionDiscontinuity(@DiscontinuityReason int reason) {
-      if (isPlayingAd()) {
-        hideController();
-      }
+    public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
+      maybeShowController(false);
+    }
+
+    @Override
+    public void onRepeatModeChanged(int repeatMode) {
+      // Do nothing.
+    }
+
+    @Override
+    public void onPlayerError(ExoPlaybackException e) {
+      // Do nothing.
+    }
+
+    @Override
+    public void onPositionDiscontinuity() {
+      // Do nothing.
+    }
+
+    @Override
+    public void onPlaybackParametersChanged(PlaybackParameters playbackParameters) {
+      // Do nothing.
+    }
+
+    @Override
+    public void onTimelineChanged(Timeline timeline, Object manifest) {
+      // Do nothing.
     }
 
   }

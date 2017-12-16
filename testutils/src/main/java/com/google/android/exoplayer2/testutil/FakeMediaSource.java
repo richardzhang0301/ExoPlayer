@@ -34,11 +34,10 @@ import junit.framework.Assert;
  */
 public class FakeMediaSource implements MediaSource {
 
-  protected final Timeline timeline;
+  private final Timeline timeline;
   private final Object manifest;
   private final TrackGroupArray trackGroupArray;
   private final ArrayList<FakeMediaPeriod> activeMediaPeriods;
-  private final ArrayList<MediaPeriodId> createdMediaPeriods;
 
   private boolean preparedSource;
   private boolean releasedSource;
@@ -59,15 +58,18 @@ public class FakeMediaSource implements MediaSource {
     this.timeline = timeline;
     this.manifest = manifest;
     this.activeMediaPeriods = new ArrayList<>();
-    this.createdMediaPeriods = new ArrayList<>();
     this.trackGroupArray = trackGroupArray;
+  }
+
+  public void assertReleased() {
+    Assert.assertTrue(releasedSource);
   }
 
   @Override
   public void prepareSource(ExoPlayer player, boolean isTopLevelSource, Listener listener) {
     Assert.assertFalse(preparedSource);
     preparedSource = true;
-    listener.onSourceInfoRefreshed(this, timeline, manifest);
+    listener.onSourceInfoRefreshed(timeline, manifest);
   }
 
   @Override
@@ -80,9 +82,8 @@ public class FakeMediaSource implements MediaSource {
     Assertions.checkIndex(id.periodIndex, 0, timeline.getPeriodCount());
     Assert.assertTrue(preparedSource);
     Assert.assertFalse(releasedSource);
-    FakeMediaPeriod mediaPeriod = createFakeMediaPeriod(id, trackGroupArray, allocator);
+    FakeMediaPeriod mediaPeriod = new FakeMediaPeriod(trackGroupArray);
     activeMediaPeriods.add(mediaPeriod);
-    createdMediaPeriods.add(id);
     return mediaPeriod;
   }
 
@@ -101,25 +102,6 @@ public class FakeMediaSource implements MediaSource {
     Assert.assertFalse(releasedSource);
     Assert.assertTrue(activeMediaPeriods.isEmpty());
     releasedSource = true;
-  }
-
-  /**
-   * Assert that the source and all periods have been released.
-   */
-  public void assertReleased() {
-    Assert.assertTrue(releasedSource);
-  }
-
-  /**
-   * Assert that a media period for the given id has been created.
-   */
-  public void assertMediaPeriodCreated(MediaPeriodId mediaPeriodId) {
-    Assert.assertTrue(createdMediaPeriods.contains(mediaPeriodId));
-  }
-
-  protected FakeMediaPeriod createFakeMediaPeriod(MediaPeriodId id, TrackGroupArray trackGroupArray,
-      Allocator allocator) {
-    return new FakeMediaPeriod(trackGroupArray);
   }
 
   private static TrackGroupArray buildTrackGroupArray(Format... formats) {

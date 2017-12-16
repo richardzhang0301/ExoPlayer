@@ -92,6 +92,7 @@ import java.util.LinkedList;
   private boolean prepared;
   private int enabledTrackCount;
   private Format downstreamTrackFormat;
+  private int upstreamChunkUid;
   private boolean released;
 
   // Tracks are complicated in HLS. See documentation of buildTracks for details.
@@ -103,7 +104,6 @@ import java.util.LinkedList;
   private boolean[] trackGroupEnabledStates;
   private boolean[] trackGroupIsAudioVideoFlags;
 
-  private long sampleOffsetUs;
   private long lastSeekPositionUs;
   private long pendingResetPositionUs;
   private boolean pendingResetUpstreamFormats;
@@ -229,7 +229,7 @@ import java.util.LinkedList;
           // sample queue, or if we haven't read anything from the queue since the previous seek
           // (this case is common for sparse tracks such as metadata tracks). In all other cases a
           // seek is required.
-          seekRequired = sampleQueue.advanceTo(positionUs, true, true) == SampleQueue.ADVANCE_FAILED
+          seekRequired = !sampleQueue.advanceTo(positionUs, true, true)
               && sampleQueue.getReadIndex() != 0;
         }
       }
@@ -255,8 +255,7 @@ import java.util.LinkedList;
         // may need to be discarded.
         boolean primarySampleQueueDirty = false;
         if (!seenFirstTrackSelection) {
-          long bufferedDurationUs = positionUs < 0 ? -positionUs : 0;
-          primaryTrackSelection.updateSelectedTrack(positionUs, bufferedDurationUs, C.TIME_UNSET);
+          primaryTrackSelection.updateSelectedTrack(0);
           int chunkIndex = chunkSource.getTrackGroup().indexOf(mediaChunks.getLast().trackFormat);
           if (primaryTrackSelection.getSelectedIndexInTrackGroup() != chunkIndex) {
             // This is the first selection and the chunk loaded during preparation does not match
@@ -321,7 +320,6 @@ import java.util.LinkedList;
     return true;
   }
 
-  @Override
   public long getBufferedPositionUs() {
     if (loadingFinished) {
       return C.TIME_END_OF_SOURCE;
@@ -371,49 +369,21 @@ import java.util.LinkedList;
 
   // SampleStream implementation.
 
-  public boolean isReady(int trackGroupIndex) {
+  /* package */ boolean isReady(int trackGroupIndex) {
     return loadingFinished || (!isPendingReset() && sampleQueues[trackGroupIndex].hasNextSample());
   }
 
-  public void maybeThrowError() throws IOException {
+  /* package */ void maybeThrowError() throws IOException {
     loader.maybeThrowError();
     chunkSource.maybeThrowError();
   }
 
-  public int readData(int trackGroupIndex, FormatHolder formatHolder,
+  /* package */ int readData(int trackGroupIndex, FormatHolder formatHolder,
       DecoderInputBuffer buffer, boolean requireFormat) {
     if (isPendingReset()) {
       return C.RESULT_NOTHING_READ;
     }
-    int result = sampleQueues[trackGroupIndex].read(formatHolder, buffer, requireFormat,
-        loadingFinished, lastSeekPositionUs);
-    if (result == C.RESULT_BUFFER_READ) {
-      discardToRead();
-    }
-    return result;
-  }
 
-  public int skipData(int trackGroupIndex, long positionUs) {
-    if (isPendingReset()) {
-      return 0;
-    }
-    int skipCount;
-    SampleQueue sampleQueue = sampleQueues[trackGroupIndex];
-    if (loadingFinished && positionUs > sampleQueue.getLargestQueuedTimestampUs()) {
-      skipCount = sampleQueue.advanceToEnd();
-    } else {
-      skipCount = sampleQueue.advanceTo(positionUs, true, true);
-      if (skipCount == SampleQueue.ADVANCE_FAILED) {
-        skipCount = 0;
-      }
-    }
-    if (skipCount > 0) {
-      discardToRead();
-    }
-    return skipCount;
-  }
-
-  private void discardToRead() {
     if (!mediaChunks.isEmpty()) {
       while (mediaChunks.size() > 1 && finishedReadingChunk(mediaChunks.getFirst())) {
         mediaChunks.removeFirst();
@@ -426,6 +396,18 @@ import java.util.LinkedList;
             currentChunk.startTimeUs);
       }
       downstreamTrackFormat = trackFormat;
+    }
+
+    return sampleQueues[trackGroupIndex].read(formatHolder, buffer, requireFormat, loadingFinished,
+        lastSeekPositionUs);
+  }
+
+  /* package */ void skipData(int trackGroupIndex, long positionUs) {
+    SampleQueue sampleQueue = sampleQueues[trackGroupIndex];
+    if (loadingFinished && positionUs > sampleQueue.getLargestQueuedTimestampUs()) {
+      sampleQueue.advanceToEnd();
+    } else {
+      sampleQueue.advanceTo(positionUs, true, true);
     }
   }
 
@@ -454,16 +436,9 @@ import java.util.LinkedList;
       return false;
     }
 
-    HlsMediaChunk previousChunk;
-    long loadPositionUs;
-    if (isPendingReset()) {
-      previousChunk = null;
-      loadPositionUs = pendingResetPositionUs;
-    } else {
-      previousChunk = mediaChunks.getLast();
-      loadPositionUs = previousChunk.endTimeUs;
-    }
-    chunkSource.getNextChunk(previousChunk, positionUs, loadPositionUs, nextChunkHolder);
+    chunkSource.getNextChunk(mediaChunks.isEmpty() ? null : mediaChunks.getLast(),
+        pendingResetPositionUs != C.TIME_UNSET ? pendingResetPositionUs : positionUs,
+        nextChunkHolder);
     boolean endOfStream = nextChunkHolder.endOfStream;
     Chunk loadable = nextChunkHolder.chunk;
     HlsMasterPlaylist.HlsUrl playlistToLoad = nextChunkHolder.playlist;
@@ -576,6 +551,7 @@ import java.util.LinkedList;
    *     samples already queued to the wrapper.
    */
   public void init(int chunkUid, boolean shouldSpliceIn) {
+    upstreamChunkUid = chunkUid;
     for (SampleQueue sampleQueue : sampleQueues) {
       sampleQueue.sourceId(chunkUid);
     }
@@ -597,7 +573,6 @@ import java.util.LinkedList;
       }
     }
     SampleQueue trackOutput = new SampleQueue(allocator);
-    trackOutput.setSampleOffsetUs(sampleOffsetUs);
     trackOutput.setUpstreamFormatChangeListener(this);
     sampleQueueTrackIds = Arrays.copyOf(sampleQueueTrackIds, trackCount + 1);
     sampleQueueTrackIds[trackCount] = id;
@@ -622,15 +597,6 @@ import java.util.LinkedList;
   @Override
   public void onUpstreamFormatChanged(Format format) {
     handler.post(maybeFinishPrepareRunnable);
-  }
-
-  // Called by the loading thread.
-
-  public void setSampleOffsetUs(long sampleOffsetUs) {
-    this.sampleOffsetUs = sampleOffsetUs;
-    for (SampleQueue sampleQueue : sampleQueues) {
-      sampleQueue.setSampleOffsetUs(sampleOffsetUs);
-    }
   }
 
   // Internal methods.
@@ -794,8 +760,7 @@ import java.util.LinkedList;
     for (int i = 0; i < trackCount; i++) {
       SampleQueue sampleQueue = sampleQueues[i];
       sampleQueue.rewind();
-      boolean seekInsideQueue = sampleQueue.advanceTo(positionUs, true, false)
-          != SampleQueue.ADVANCE_FAILED;
+      boolean seekInsideQueue = sampleQueue.advanceTo(positionUs, true, false);
       // If we have AV tracks then an in-queue seek is successful if the seek into every AV queue
       // is successful. We ignore whether seeks within non-AV queues are successful in this case, as
       // they may be sparse or poorly interleaved. If we only have non-AV tracks then a seek is

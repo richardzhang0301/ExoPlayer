@@ -33,6 +33,7 @@ import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.FormatHolder;
 import com.google.android.exoplayer2.decoder.DecoderCounters;
 import com.google.android.exoplayer2.decoder.DecoderInputBuffer;
+import com.google.android.exoplayer2.drm.DrmInitData;
 import com.google.android.exoplayer2.drm.DrmSession;
 import com.google.android.exoplayer2.drm.DrmSession.DrmSessionException;
 import com.google.android.exoplayer2.drm.DrmSessionManager;
@@ -43,6 +44,7 @@ import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.NalUnitUtil;
 import com.google.android.exoplayer2.util.TraceUtil;
 import com.google.android.exoplayer2.util.Util;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.nio.ByteBuffer;
@@ -129,10 +131,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    */
   private static final long MAX_CODEC_HOTSWAP_TIME_MS = 1000;
 
-  @Retention(RetentionPolicy.SOURCE)
-  @IntDef({RECONFIGURATION_STATE_NONE, RECONFIGURATION_STATE_WRITE_PENDING,
-      RECONFIGURATION_STATE_QUEUE_PENDING})
-  private @interface ReconfigurationState {}
   /**
    * There is no pending adaptive reconfiguration work.
    */
@@ -147,10 +145,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    */
   private static final int RECONFIGURATION_STATE_QUEUE_PENDING = 2;
 
-  @Retention(RetentionPolicy.SOURCE)
-  @IntDef({REINITIALIZATION_STATE_NONE, REINITIALIZATION_STATE_SIGNAL_END_OF_STREAM,
-      REINITIALIZATION_STATE_WAIT_END_OF_STREAM})
-  private @interface ReinitializationState {}
   /**
    * The codec does not need to be re-initialized.
    */
@@ -196,7 +190,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private static final int ADAPTATION_WORKAROUND_SLICE_WIDTH_HEIGHT = 32;
 
   private final MediaCodecSelector mediaCodecSelector;
-  @Nullable
   private final DrmSessionManager<FrameworkMediaCrypto> drmSessionManager;
   private final boolean playClearSamplesWithoutKeys;
   private final DecoderInputBuffer buffer;
@@ -226,8 +219,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private int outputIndex;
   private boolean shouldSkipOutputBuffer;
   private boolean codecReconfigured;
-  private @ReconfigurationState int codecReconfigurationState;
-  private @ReinitializationState int codecReinitializationState;
+  private int codecReconfigurationState;
+  private int codecReinitializationState;
   private boolean codecReceivedBuffers;
   private boolean codecReceivedEos;
 
@@ -251,7 +244,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    *     has obtained the keys necessary to decrypt encrypted regions of the media.
    */
   public MediaCodecRenderer(int trackType, MediaCodecSelector mediaCodecSelector,
-      @Nullable DrmSessionManager<FrameworkMediaCrypto> drmSessionManager,
+      DrmSessionManager<FrameworkMediaCrypto> drmSessionManager,
       boolean playClearSamplesWithoutKeys) {
     super(trackType);
     Assertions.checkState(Util.SDK_INT >= 16);
@@ -275,7 +268,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   @Override
   public final int supportsFormat(Format format) throws ExoPlaybackException {
     try {
-      return supportsFormat(mediaCodecSelector, drmSessionManager, format);
+      int formatSupport = supportsFormat(mediaCodecSelector, format);
+      if ((formatSupport & FORMAT_SUPPORT_MASK) > FORMAT_UNSUPPORTED_DRM
+          && !isDrmSchemeSupported(drmSessionManager, format.drmInitData)) {
+        // The renderer advertises higher support than FORMAT_UNSUPPORTED_DRM but the DRM scheme is
+        // not supported. The format support is truncated to reflect this.
+        formatSupport = (formatSupport & ~FORMAT_SUPPORT_MASK) | FORMAT_UNSUPPORTED_DRM;
+      }
+      return formatSupport;
     } catch (DecoderQueryException e) {
       throw ExoPlaybackException.createForRenderer(e, getIndex());
     }
@@ -285,14 +285,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * Returns the extent to which the renderer is capable of supporting a given format.
    *
    * @param mediaCodecSelector The decoder selector.
-   * @param drmSessionManager The renderer's {@link DrmSessionManager}.
    * @param format The format.
    * @return The extent to which the renderer is capable of supporting the given format. See
    *     {@link #supportsFormat(Format)} for more detail.
    * @throws DecoderQueryException If there was an error querying decoders.
    */
-  protected abstract int supportsFormat(MediaCodecSelector mediaCodecSelector,
-      DrmSessionManager<FrameworkMediaCrypto> drmSessionManager, Format format)
+  protected abstract int supportsFormat(MediaCodecSelector mediaCodecSelector, Format format)
       throws DecoderQueryException;
 
   /**
@@ -553,7 +551,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       while (feedInputBuffer()) {}
       TraceUtil.endSection();
     } else {
-      decoderCounters.skippedInputBufferCount += skipSource(positionUs);
+      skipSource(positionUs);
       // We need to read any format changes despite not having a codec so that drmSession can be
       // updated, and so that we have the most recent format should the codec be initialized. We may
       // also reach the end of the stream. Note that readSource will not read a sample into a
@@ -1109,6 +1107,25 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   /**
+   * Returns whether the encryption scheme is supported, or true if {@code drmInitData} is null.
+   *
+   * @param drmSessionManager The drm session manager associated with the renderer.
+   * @param drmInitData {@link DrmInitData} of the format to check for support.
+   * @return Whether the encryption scheme is supported, or true if {@code drmInitData} is null.
+   */
+  private static boolean isDrmSchemeSupported(DrmSessionManager drmSessionManager,
+      @Nullable DrmInitData drmInitData) {
+    if (drmInitData == null) {
+      // Content is unencrypted.
+      return true;
+    } else if (drmSessionManager == null) {
+      // Content is encrypted, but no drm session manager is available.
+      return false;
+    }
+    return drmSessionManager.canAcquireSession(drmInitData);
+  }
+
+  /**
    * Returns whether the decoder is known to fail when flushed.
    * <p>
    * If true is returned, the renderer will work around the issue by releasing the decoder and
@@ -1141,9 +1158,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @return The mode specifying when the adaptation workaround should be enabled.
    */
   private @AdaptationWorkaroundMode int codecAdaptationWorkaroundMode(String name) {
-    if (Util.SDK_INT <= 25 && "OMX.Exynos.avc.dec.secure".equals(name)
-        && (Util.MODEL.startsWith("SM-T585") || Util.MODEL.startsWith("SM-A510")
-        || Util.MODEL.startsWith("SM-A520") || Util.MODEL.startsWith("SM-J700"))) {
+    if (Util.SDK_INT <= 24 && "OMX.Exynos.avc.dec.secure".equals(name)
+        && (Util.MODEL.startsWith("SM-T585") || Util.MODEL.startsWith("SM-A520"))) {
       return ADAPTATION_WORKAROUND_MODE_ALWAYS;
     } else if (Util.SDK_INT < 24
         && ("OMX.Nvidia.h264.decode".equals(name) || "OMX.Nvidia.h264.decode.secure".equals(name))

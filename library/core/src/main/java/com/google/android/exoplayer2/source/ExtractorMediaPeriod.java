@@ -93,7 +93,6 @@ import java.util.Arrays;
   private int[] sampleQueueTrackIds;
   private boolean sampleQueuesBuilt;
   private boolean prepared;
-  private int actualMinLoadableRetryCount;
 
   private boolean seenFirstTrackSelection;
   private boolean notifyDiscontinuity;
@@ -161,11 +160,6 @@ import java.util.Arrays;
     sampleQueues = new SampleQueue[0];
     pendingResetPositionUs = C.TIME_UNSET;
     length = C.LENGTH_UNSET;
-    // Assume on-demand for MIN_RETRY_COUNT_DEFAULT_FOR_MEDIA, until prepared.
-    actualMinLoadableRetryCount =
-        minLoadableRetryCount == ExtractorMediaSource.MIN_RETRY_COUNT_DEFAULT_FOR_MEDIA
-        ? ExtractorMediaSource.DEFAULT_MIN_LOADABLE_RETRY_COUNT_ON_DEMAND
-        : minLoadableRetryCount;
   }
 
   public void release() {
@@ -244,7 +238,7 @@ import java.util.Arrays;
           // sample queue, or if we haven't read anything from the queue since the previous seek
           // (this case is common for sparse tracks such as metadata tracks). In all other cases a
           // seek is required.
-          seekRequired = sampleQueue.advanceTo(positionUs, true, true) == SampleQueue.ADVANCE_FAILED
+          seekRequired = !sampleQueue.advanceTo(positionUs, true, true)
               && sampleQueue.getReadIndex() != 0;
         }
       }
@@ -361,37 +355,29 @@ import java.util.Arrays;
   // SampleStream methods.
 
   /* package */ boolean isReady(int track) {
-    return !suppressRead() && (loadingFinished || sampleQueues[track].hasNextSample());
+    return loadingFinished || (!isPendingReset() && sampleQueues[track].hasNextSample());
   }
 
   /* package */ void maybeThrowError() throws IOException {
-    loader.maybeThrowError(actualMinLoadableRetryCount);
+    loader.maybeThrowError();
   }
 
   /* package */ int readData(int track, FormatHolder formatHolder, DecoderInputBuffer buffer,
       boolean formatRequired) {
-    if (suppressRead()) {
+    if (notifyDiscontinuity || isPendingReset()) {
       return C.RESULT_NOTHING_READ;
     }
     return sampleQueues[track].read(formatHolder, buffer, formatRequired, loadingFinished,
         lastSeekPositionUs);
   }
 
-  /* package */ int skipData(int track, long positionUs) {
-    if (suppressRead()) {
-      return 0;
-    }
+  /* package */ void skipData(int track, long positionUs) {
     SampleQueue sampleQueue = sampleQueues[track];
     if (loadingFinished && positionUs > sampleQueue.getLargestQueuedTimestampUs()) {
-      return sampleQueue.advanceToEnd();
+      sampleQueue.advanceToEnd();
     } else {
-      int skipCount = sampleQueue.advanceTo(positionUs, true, true);
-      return skipCount == SampleQueue.ADVANCE_FAILED ? 0 : skipCount;
+      sampleQueue.advanceTo(positionUs, true, true);
     }
-  }
-
-  private boolean suppressRead() {
-    return notifyDiscontinuity || isPendingReset();
   }
 
   // Loader.Callback implementation.
@@ -504,10 +490,6 @@ import java.util.Arrays;
       haveAudioVideoTracks |= isAudioVideo;
     }
     tracks = new TrackGroupArray(trackArray);
-    if (minLoadableRetryCount == ExtractorMediaSource.MIN_RETRY_COUNT_DEFAULT_FOR_MEDIA
-        && length == C.LENGTH_UNSET && seekMap.getDurationUs() == C.TIME_UNSET) {
-      actualMinLoadableRetryCount = ExtractorMediaSource.DEFAULT_MIN_LOADABLE_RETRY_COUNT_LIVE;
-    }
     prepared = true;
     listener.onSourceInfoRefreshed(durationUs, seekMap.isSeekable());
     callback.onPrepared(this);
@@ -533,7 +515,16 @@ import java.util.Arrays;
       pendingResetPositionUs = C.TIME_UNSET;
     }
     extractedSamplesCountAtStartOfLoad = getExtractedSamplesCount();
-    loader.startLoading(loadable, this, actualMinLoadableRetryCount);
+
+    int minRetryCount = minLoadableRetryCount;
+    if (minRetryCount == ExtractorMediaSource.MIN_RETRY_COUNT_DEFAULT_FOR_MEDIA) {
+      // We assume on-demand before we're prepared.
+      minRetryCount = !prepared || length != C.LENGTH_UNSET
+          || (seekMap != null && seekMap.getDurationUs() != C.TIME_UNSET)
+          ? ExtractorMediaSource.DEFAULT_MIN_LOADABLE_RETRY_COUNT_ON_DEMAND
+          : ExtractorMediaSource.DEFAULT_MIN_LOADABLE_RETRY_COUNT_LIVE;
+    }
+    loader.startLoading(loadable, this, minRetryCount);
   }
 
   private void configureRetry(ExtractingLoadable loadable) {
@@ -567,8 +558,7 @@ import java.util.Arrays;
     for (int i = 0; i < trackCount; i++) {
       SampleQueue sampleQueue = sampleQueues[i];
       sampleQueue.rewind();
-      boolean seekInsideQueue = sampleQueue.advanceTo(positionUs, true, false)
-          != SampleQueue.ADVANCE_FAILED;
+      boolean seekInsideQueue = sampleQueue.advanceTo(positionUs, true, false);
       // If we have AV tracks then an in-buffer seek is successful if the seek into every AV queue
       // is successful. We ignore whether seeks within non-AV queues are successful in this case, as
       // they may be sparse or poorly interleaved. If we only have non-AV tracks then a seek is
@@ -642,8 +632,8 @@ import java.util.Arrays;
     }
 
     @Override
-    public int skipData(long positionUs) {
-      return ExtractorMediaPeriod.this.skipData(track, positionUs);
+    public void skipData(long positionUs) {
+      ExtractorMediaPeriod.this.skipData(track, positionUs);
     }
 
   }

@@ -112,11 +112,16 @@ public final class Mp3Extractor implements Extractor {
   private long samplesRead;
   private int sampleBytesRemaining;
 
+  /**
+   * Constructs a new {@link Mp3Extractor}.
+   */
   public Mp3Extractor() {
     this(0);
   }
 
   /**
+   * Constructs a new {@link Mp3Extractor}.
+   *
    * @param flags Flags that control the extractor's behavior.
    */
   public Mp3Extractor(@Flags int flags) {
@@ -124,6 +129,8 @@ public final class Mp3Extractor implements Extractor {
   }
 
   /**
+   * Constructs a new {@link Mp3Extractor}.
+   *
    * @param flags Flags that control the extractor's behavior.
    * @param forcedFirstSampleTimestampUs A timestamp to force for the first sample, or
    *     {@link C#TIME_UNSET} if forcing is not required.
@@ -136,8 +143,6 @@ public final class Mp3Extractor implements Extractor {
     gaplessInfoHolder = new GaplessInfoHolder();
     basisTimeUs = C.TIME_UNSET;
   }
-
-  // Extractor implementation.
 
   @Override
   public boolean sniff(ExtractorInput input) throws IOException, InterruptedException {
@@ -189,8 +194,6 @@ public final class Mp3Extractor implements Extractor {
     }
     return readSample(input);
   }
-
-  // Internal methods.
 
   private int readSample(ExtractorInput extractorInput) throws IOException, InterruptedException {
     if (sampleBytesRemaining == 0) {

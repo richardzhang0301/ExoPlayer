@@ -72,19 +72,8 @@ public final class ParsingLoadable<T> implements Loadable {
    * @param parser Parses the object from the response.
    */
   public ParsingLoadable(DataSource dataSource, Uri uri, int type, Parser<? extends T> parser) {
-    this(dataSource, new DataSpec(uri, DataSpec.FLAG_ALLOW_GZIP), type, parser);
-  }
-
-  /**
-   * @param dataSource A {@link DataSource} to use when loading the data.
-   * @param dataSpec The {@link DataSpec} from which the object should be loaded.
-   * @param type See {@link #type}.
-   * @param parser Parses the object from the response.
-   */
-  public ParsingLoadable(DataSource dataSource, DataSpec dataSpec, int type,
-      Parser<? extends T> parser) {
     this.dataSource = dataSource;
-    this.dataSpec = dataSpec;
+    this.dataSpec = new DataSpec(uri, DataSpec.FLAG_ALLOW_GZIP);
     this.type = type;
     this.parser = parser;
   }
@@ -119,7 +108,7 @@ public final class ParsingLoadable<T> implements Loadable {
   }
 
   @Override
-  public final void load() throws IOException {
+  public final void load() throws IOException, InterruptedException {
     DataSourceInputStream inputStream = new DataSourceInputStream(dataSource, dataSpec);
     try {
       inputStream.open();

@@ -70,8 +70,7 @@ public interface SampleStream {
    * {@code positionUs} is beyond it.
    *
    * @param positionUs The specified time.
-   * @return The number of samples that were skipped.
    */
-  int skipData(long positionUs);
+  void skipData(long positionUs);
 
 }

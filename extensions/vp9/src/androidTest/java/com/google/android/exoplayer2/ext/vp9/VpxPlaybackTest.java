@@ -23,11 +23,15 @@ import android.util.Log;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.ExoPlayerFactory;
+import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.Renderer;
+import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.extractor.mkv.MatroskaExtractor;
 import com.google.android.exoplayer2.source.ExtractorMediaSource;
+import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
+import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 
 /**
@@ -70,22 +74,20 @@ public class VpxPlaybackTest extends InstrumentationTestCase {
   }
 
   private void playUri(String uri) throws ExoPlaybackException {
-    TestPlaybackRunnable testPlaybackRunnable = new TestPlaybackRunnable(Uri.parse(uri),
+    TestPlaybackThread thread = new TestPlaybackThread(Uri.parse(uri),
         getInstrumentation().getContext());
-    Thread thread = new Thread(testPlaybackRunnable);
     thread.start();
     try {
       thread.join();
     } catch (InterruptedException e) {
       fail(); // Should never happen.
     }
-    if (testPlaybackRunnable.playbackException != null) {
-      throw testPlaybackRunnable.playbackException;
+    if (thread.playbackException != null) {
+      throw thread.playbackException;
     }
   }
 
-  private static class TestPlaybackRunnable extends Player.DefaultEventListener
-      implements Runnable {
+  private static class TestPlaybackThread extends Thread implements Player.EventListener {
 
     private final Context context;
     private final Uri uri;
@@ -93,7 +95,7 @@ public class VpxPlaybackTest extends InstrumentationTestCase {
     private ExoPlayer player;
     private ExoPlaybackException playbackException;
 
-    public TestPlaybackRunnable(Uri uri, Context context) {
+    public TestPlaybackThread(Uri uri, Context context) {
       this.uri = uri;
       this.context = context;
     }
@@ -120,6 +122,31 @@ public class VpxPlaybackTest extends InstrumentationTestCase {
     }
 
     @Override
+    public void onLoadingChanged(boolean isLoading) {
+      // Do nothing.
+    }
+
+    @Override
+    public void onTracksChanged(TrackGroupArray trackGroups, TrackSelectionArray trackSelections) {
+      // Do nothing.
+    }
+
+    @Override
+    public void onPositionDiscontinuity() {
+      // Do nothing.
+    }
+
+    @Override
+    public void onPlaybackParametersChanged(PlaybackParameters playbackParameters) {
+      // Do nothing.
+    }
+
+    @Override
+    public void onTimelineChanged(Timeline timeline, Object manifest) {
+      // Do nothing.
+    }
+
+    @Override
     public void onPlayerError(ExoPlaybackException error) {
       playbackException = error;
     }
@@ -128,9 +155,18 @@ public class VpxPlaybackTest extends InstrumentationTestCase {
     public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
       if (playbackState == Player.STATE_ENDED
           || (playbackState == Player.STATE_IDLE && playbackException != null)) {
-        player.release();
-        Looper.myLooper().quit();
+        releasePlayerAndQuitLooper();
       }
+    }
+
+    @Override
+    public void onRepeatModeChanged(int repeatMode) {
+      // Do nothing.
+    }
+
+    private void releasePlayerAndQuitLooper() {
+      player.release();
+      Looper.myLooper().quit();
     }
 
   }

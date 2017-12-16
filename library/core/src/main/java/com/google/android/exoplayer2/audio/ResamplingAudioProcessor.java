@@ -80,11 +80,6 @@ import java.nio.ByteOrder;
   }
 
   @Override
-  public int getOutputSampleRateHz() {
-    return sampleRateHz;
-  }
-
-  @Override
   public void queueInput(ByteBuffer inputBuffer) {
     // Prepare the output buffer.
     int position = inputBuffer.position();

@@ -60,8 +60,8 @@ public final class FakeSampleStream implements SampleStream {
   }
 
   @Override
-  public int skipData(long positionUs) {
-    return 0;
+  public void skipData(long positionUs) {
+    // Do nothing.
   }
 
 }

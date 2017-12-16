@@ -63,11 +63,7 @@ public final class CompositeSequenceableLoader implements SequenceableLoader {
         break;
       }
       for (SequenceableLoader loader : loaders) {
-        long loaderNextLoadPositionUs = loader.getNextLoadPositionUs();
-        boolean isLoaderBehind =
-            loaderNextLoadPositionUs != C.TIME_END_OF_SOURCE
-                && loaderNextLoadPositionUs <= positionUs;
-        if (loaderNextLoadPositionUs == nextLoadPositionUs || isLoaderBehind) {
+        if (loader.getNextLoadPositionUs() == nextLoadPositionUs) {
           madeProgressThisIteration |= loader.continueLoading(positionUs);
         }
       }

@@ -15,8 +15,6 @@
  */
 package com.google.android.exoplayer2.util;
 
-import android.os.Handler;
-
 /**
  * The standard implementation of {@link Clock}.
  */
@@ -30,11 +28,6 @@ import android.os.Handler;
   @Override
   public void sleep(long sleepTimeMs) {
     android.os.SystemClock.sleep(sleepTimeMs);
-  }
-
-  @Override
-  public void postDelayed(Handler handler, Runnable runnable, long delayMs) {
-    handler.postDelayed(runnable, delayMs);
   }
 
 }

@@ -18,7 +18,6 @@ package com.google.android.exoplayer2.testutil;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.util.Util;
-import java.util.Arrays;
 
 /**
  * Fake {@link Timeline} which can be setup to return custom {@link TimelineWindowDefinition}s.
@@ -37,8 +36,6 @@ public final class FakeTimeline extends Timeline {
     public final boolean isSeekable;
     public final boolean isDynamic;
     public final long durationUs;
-    public final int adGroupsPerPeriodCount;
-    public final int adsPerAdGroupCount;
 
     public TimelineWindowDefinition(int periodCount, Object id) {
       this(periodCount, id, true, false, WINDOW_DURATION_US);
@@ -50,23 +47,14 @@ public final class FakeTimeline extends Timeline {
 
     public TimelineWindowDefinition(int periodCount, Object id, boolean isSeekable,
         boolean isDynamic, long durationUs) {
-      this(periodCount, id, isSeekable, isDynamic, durationUs, 0, 0);
-    }
-
-    public TimelineWindowDefinition(int periodCount, Object id, boolean isSeekable,
-        boolean isDynamic, long durationUs, int adGroupsCountPerPeriod, int adsPerAdGroupCount) {
       this.periodCount = periodCount;
       this.id = id;
       this.isSeekable = isSeekable;
       this.isDynamic = isDynamic;
       this.durationUs = durationUs;
-      this.adGroupsPerPeriodCount = adGroupsCountPerPeriod;
-      this.adsPerAdGroupCount = adsPerAdGroupCount;
     }
 
   }
-
-  private static final long AD_DURATION_US = 10 * C.MICROS_PER_SECOND;
 
   private final TimelineWindowDefinition[] windowDefinitions;
   private final int[] periodOffsets;
@@ -108,28 +96,7 @@ public final class FakeTimeline extends Timeline {
     Object id = setIds ? windowPeriodIndex : null;
     Object uid = setIds ? periodIndex : null;
     long periodDurationUs = windowDefinition.durationUs / windowDefinition.periodCount;
-    long positionInWindowUs = periodDurationUs * windowPeriodIndex;
-    if (windowDefinition.adGroupsPerPeriodCount == 0) {
-      return period.set(id, uid, windowIndex, periodDurationUs, positionInWindowUs);
-    } else {
-      int adGroups = windowDefinition.adGroupsPerPeriodCount;
-      long[] adGroupTimesUs = new long[adGroups];
-      int[] adCounts = new int[adGroups];
-      int[] adLoadedAndPlayedCounts = new int[adGroups];
-      long[][] adDurationsUs = new long[adGroups][];
-      long adResumePositionUs = 0;
-      long adGroupOffset = adGroups > 1 ? periodDurationUs / (adGroups - 1) : 0;
-      for (int i = 0; i < adGroups; i++) {
-        adGroupTimesUs[i] = i * adGroupOffset;
-        adCounts[i] = windowDefinition.adsPerAdGroupCount;
-        adLoadedAndPlayedCounts[i] = 0;
-        adDurationsUs[i] = new long[adCounts[i]];
-        Arrays.fill(adDurationsUs[i], AD_DURATION_US);
-      }
-      return period.set(id, uid, windowIndex, periodDurationUs, positionInWindowUs, adGroupTimesUs,
-          adCounts, adLoadedAndPlayedCounts, adLoadedAndPlayedCounts, adDurationsUs,
-          adResumePositionUs);
-    }
+    return period.set(id, uid, windowIndex, periodDurationUs, periodDurationUs * windowPeriodIndex);
   }
 
   @Override

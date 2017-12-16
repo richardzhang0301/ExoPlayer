@@ -85,8 +85,9 @@ public class HlsMediaPlaylistParserTest extends TestCase {
       Segment segment = segments.get(0);
       assertEquals(4, mediaPlaylist.discontinuitySequence + segment.relativeDiscontinuitySequence);
       assertEquals(7975000, segment.durationUs);
-      assertNull(segment.fullSegmentEncryptionKeyUri);
-      assertNull(segment.encryptionIV);
+      assertFalse(segment.isEncrypted);
+      assertEquals(null, segment.encryptionKeyUri);
+      assertEquals(null, segment.encryptionIV);
       assertEquals(51370, segment.byterangeLength);
       assertEquals(0, segment.byterangeOffset);
       assertEquals("https://priv.example.com/fileSequence2679.ts", segment.url);
@@ -94,7 +95,8 @@ public class HlsMediaPlaylistParserTest extends TestCase {
       segment = segments.get(1);
       assertEquals(0, segment.relativeDiscontinuitySequence);
       assertEquals(7975000, segment.durationUs);
-      assertEquals("https://priv.example.com/key.php?r=2680", segment.fullSegmentEncryptionKeyUri);
+      assertTrue(segment.isEncrypted);
+      assertEquals("https://priv.example.com/key.php?r=2680", segment.encryptionKeyUri);
       assertEquals("0x1566B", segment.encryptionIV);
       assertEquals(51501, segment.byterangeLength);
       assertEquals(2147483648L, segment.byterangeOffset);
@@ -103,7 +105,8 @@ public class HlsMediaPlaylistParserTest extends TestCase {
       segment = segments.get(2);
       assertEquals(0, segment.relativeDiscontinuitySequence);
       assertEquals(7941000, segment.durationUs);
-      assertNull(segment.fullSegmentEncryptionKeyUri);
+      assertFalse(segment.isEncrypted);
+      assertEquals(null, segment.encryptionKeyUri);
       assertEquals(null, segment.encryptionIV);
       assertEquals(51501, segment.byterangeLength);
       assertEquals(2147535149L, segment.byterangeOffset);
@@ -112,7 +115,8 @@ public class HlsMediaPlaylistParserTest extends TestCase {
       segment = segments.get(3);
       assertEquals(1, segment.relativeDiscontinuitySequence);
       assertEquals(7975000, segment.durationUs);
-      assertEquals("https://priv.example.com/key.php?r=2682", segment.fullSegmentEncryptionKeyUri);
+      assertTrue(segment.isEncrypted);
+      assertEquals("https://priv.example.com/key.php?r=2682", segment.encryptionKeyUri);
       // 0xA7A == 2682.
       assertNotNull(segment.encryptionIV);
       assertEquals("A7A", segment.encryptionIV.toUpperCase(Locale.getDefault()));
@@ -123,7 +127,8 @@ public class HlsMediaPlaylistParserTest extends TestCase {
       segment = segments.get(4);
       assertEquals(1, segment.relativeDiscontinuitySequence);
       assertEquals(7975000, segment.durationUs);
-      assertEquals("https://priv.example.com/key.php?r=2682", segment.fullSegmentEncryptionKeyUri);
+      assertTrue(segment.isEncrypted);
+      assertEquals("https://priv.example.com/key.php?r=2682", segment.encryptionKeyUri);
       // 0xA7B == 2683.
       assertNotNull(segment.encryptionIV);
       assertEquals("A7B", segment.encryptionIV.toUpperCase(Locale.getDefault()));

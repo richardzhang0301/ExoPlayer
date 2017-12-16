@@ -15,8 +15,6 @@
  */
 package com.google.android.exoplayer2.source.chunk;
 
-import android.util.Log;
-
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.FormatHolder;
@@ -39,8 +37,6 @@ import java.util.List;
  */
 public class ChunkSampleStream<T extends ChunkSource> implements SampleStream, SequenceableLoader,
     Loader.Callback<Chunk>, Loader.ReleaseCallback {
-
-  private static final String TAG = "ChunkSampleStream";
 
   private final int primaryTrackType;
   private final int[] embeddedTrackTypes;
@@ -164,7 +160,6 @@ public class ChunkSampleStream<T extends ChunkSource> implements SampleStream, S
    * @return An estimate of the absolute position in microseconds up to which data is buffered, or
    *     {@link C#TIME_END_OF_SOURCE} if the track is fully buffered.
    */
-  @Override
   public long getBufferedPositionUs() {
     if (loadingFinished) {
       return C.TIME_END_OF_SOURCE;
@@ -190,8 +185,8 @@ public class ChunkSampleStream<T extends ChunkSource> implements SampleStream, S
   public void seekToUs(long positionUs) {
     lastSeekPositionUs = positionUs;
     // If we're not pending a reset, see if we can seek within the primary sample queue.
-    boolean seekInsideBuffer = !isPendingReset() && (primarySampleQueue.advanceTo(positionUs, true,
-        positionUs < getNextLoadPositionUs()) != SampleQueue.ADVANCE_FAILED);
+    boolean seekInsideBuffer = !isPendingReset() && primarySampleQueue.advanceTo(positionUs, true,
+        positionUs < getNextLoadPositionUs());
     if (seekInsideBuffer) {
       // We succeeded. Discard samples and corresponding chunks prior to the seek position.
       discardDownstreamMediaChunks(primarySampleQueue.getReadIndex());
@@ -271,23 +266,13 @@ public class ChunkSampleStream<T extends ChunkSource> implements SampleStream, S
   }
 
   @Override
-  public int skipData(long positionUs) {
-    if (isPendingReset()) {
-      return 0;
-    }
-    int skipCount;
+  public void skipData(long positionUs) {
     if (loadingFinished && positionUs > primarySampleQueue.getLargestQueuedTimestampUs()) {
-      skipCount = primarySampleQueue.advanceToEnd();
+      primarySampleQueue.advanceToEnd();
     } else {
-      skipCount = primarySampleQueue.advanceTo(positionUs, true, true);
-      if (skipCount == SampleQueue.ADVANCE_FAILED) {
-        skipCount = 0;
-      }
+      primarySampleQueue.advanceTo(positionUs, true, true);
     }
-    if (skipCount > 0) {
-      primarySampleQueue.discardToRead();
-    }
-    return skipCount;
+    primarySampleQueue.discardToRead();
   }
 
   // Loader.Callback implementation.
@@ -323,23 +308,19 @@ public class ChunkSampleStream<T extends ChunkSource> implements SampleStream, S
       IOException error) {
     long bytesLoaded = loadable.bytesLoaded();
     boolean isMediaChunk = isMediaChunk(loadable);
-    boolean cancelable = bytesLoaded == 0 || !isMediaChunk || !haveReadFromLastMediaChunk();
+    boolean cancelable = !isMediaChunk || bytesLoaded == 0 || mediaChunks.size() > 1;
     boolean canceled = false;
     if (chunkSource.onChunkLoadError(loadable, cancelable, error)) {
-      if (!cancelable) {
-        Log.w(TAG, "Ignoring attempt to cancel non-cancelable load.");
-      } else {
-        canceled = true;
-        if (isMediaChunk) {
-          BaseMediaChunk removed = mediaChunks.removeLast();
-          Assertions.checkState(removed == loadable);
-          primarySampleQueue.discardUpstreamSamples(removed.getFirstSampleIndex(0));
-          for (int i = 0; i < embeddedSampleQueues.length; i++) {
-            embeddedSampleQueues[i].discardUpstreamSamples(removed.getFirstSampleIndex(i + 1));
-          }
-          if (mediaChunks.isEmpty()) {
-            pendingResetPositionUs = lastSeekPositionUs;
-          }
+      canceled = true;
+      if (isMediaChunk) {
+        BaseMediaChunk removed = mediaChunks.removeLast();
+        Assertions.checkState(removed == loadable);
+        primarySampleQueue.discardUpstreamSamples(removed.getFirstSampleIndex(0));
+        for (int i = 0; i < embeddedSampleQueues.length; i++) {
+          embeddedSampleQueues[i].discardUpstreamSamples(removed.getFirstSampleIndex(i + 1));
+        }
+        if (mediaChunks.isEmpty()) {
+          pendingResetPositionUs = lastSeekPositionUs;
         }
       }
     }
@@ -363,16 +344,9 @@ public class ChunkSampleStream<T extends ChunkSource> implements SampleStream, S
       return false;
     }
 
-    MediaChunk previousChunk;
-    long loadPositionUs;
-    if (isPendingReset()) {
-      previousChunk = null;
-      loadPositionUs = pendingResetPositionUs;
-    } else {
-      previousChunk = mediaChunks.getLast();
-      loadPositionUs = previousChunk.endTimeUs;
-    }
-    chunkSource.getNextChunk(previousChunk, positionUs, loadPositionUs, nextChunkHolder);
+    chunkSource.getNextChunk(mediaChunks.isEmpty() ? null : mediaChunks.getLast(),
+        pendingResetPositionUs != C.TIME_UNSET ? pendingResetPositionUs : positionUs,
+        nextChunkHolder);
     boolean endOfStream = nextChunkHolder.endOfStream;
     Chunk loadable = nextChunkHolder.chunk;
     nextChunkHolder.clear();
@@ -425,22 +399,6 @@ public class ChunkSampleStream<T extends ChunkSource> implements SampleStream, S
 
   private boolean isMediaChunk(Chunk chunk) {
     return chunk instanceof BaseMediaChunk;
-  }
-
-  /**
-   * Returns whether samples have been read from {@code mediaChunks.getLast()}.
-   */
-  private boolean haveReadFromLastMediaChunk() {
-    BaseMediaChunk lastChunk = mediaChunks.getLast();
-    if (primarySampleQueue.getReadIndex() > lastChunk.getFirstSampleIndex(0)) {
-      return true;
-    }
-    for (int i = 0; i < embeddedSampleQueues.length; i++) {
-      if (embeddedSampleQueues[i].getReadIndex() > lastChunk.getFirstSampleIndex(i + 1)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /* package */ boolean isPendingReset() {
@@ -512,12 +470,11 @@ public class ChunkSampleStream<T extends ChunkSource> implements SampleStream, S
     }
 
     @Override
-    public int skipData(long positionUs) {
+    public void skipData(long positionUs) {
       if (loadingFinished && positionUs > sampleQueue.getLargestQueuedTimestampUs()) {
-        return sampleQueue.advanceToEnd();
+        sampleQueue.advanceToEnd();
       } else {
-        int skipCount = sampleQueue.advanceTo(positionUs, true, true);
-        return skipCount == SampleQueue.ADVANCE_FAILED ? 0 : skipCount;
+        sampleQueue.advanceTo(positionUs, true, true);
       }
     }
 

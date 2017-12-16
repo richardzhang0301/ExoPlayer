@@ -17,7 +17,6 @@ package com.google.android.exoplayer2.video;
 
 import android.os.Handler;
 import android.os.SystemClock;
-import android.support.annotation.Nullable;
 import android.view.Surface;
 import android.view.TextureView;
 import com.google.android.exoplayer2.Format;
@@ -110,16 +109,15 @@ public interface VideoRendererEventListener {
    */
   final class EventDispatcher {
 
-    @Nullable private final Handler handler;
-    @Nullable private final VideoRendererEventListener listener;
+    private final Handler handler;
+    private final VideoRendererEventListener listener;
 
     /**
      * @param handler A handler for dispatching events, or null if creating a dummy instance.
      * @param listener The listener to which events should be dispatched, or null if creating a
      *     dummy instance.
      */
-    public EventDispatcher(@Nullable Handler handler,
-        @Nullable VideoRendererEventListener listener) {
+    public EventDispatcher(Handler handler, VideoRendererEventListener listener) {
       this.handler = listener != null ? Assertions.checkNotNull(handler) : null;
       this.listener = listener;
     }

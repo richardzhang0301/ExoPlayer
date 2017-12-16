@@ -29,72 +29,24 @@ import java.util.List;
  */
 public final class SpliceInsertCommand extends SpliceCommand {
 
-  /**
-   * The splice event id.
-   */
   public final long spliceEventId;
-  /**
-   * True if the event with id {@link #spliceEventId} has been canceled.
-   */
   public final boolean spliceEventCancelIndicator;
-  /**
-   * If true, the splice event is an opportunity to exit from the network feed. If false, indicates
-   * an opportunity to return to the network feed.
-   */
   public final boolean outOfNetworkIndicator;
-  /**
-   * Whether the splice mode is program splice mode, whereby all PIDs/components are to be spliced.
-   * If false, splicing is done per PID/component.
-   */
   public final boolean programSpliceFlag;
-  /**
-   * Whether splicing should be done at the nearest opportunity. If false, splicing should be done
-   * at the moment indicated by {@link #programSplicePlaybackPositionUs} or
-   * {@link ComponentSplice#componentSplicePlaybackPositionUs}, depending on
-   * {@link #programSpliceFlag}.
-   */
   public final boolean spliceImmediateFlag;
-  /**
-   * If {@link #programSpliceFlag} is true, the PTS at which the program splice should occur.
-   * {@link C#TIME_UNSET} otherwise.
-   */
   public final long programSplicePts;
-  /**
-   * Equivalent to {@link #programSplicePts} but in the playback timebase.
-   */
   public final long programSplicePlaybackPositionUs;
-  /**
-   * If {@link #programSpliceFlag} is false, a non-empty list containing the
-   * {@link ComponentSplice}s. Otherwise, an empty list.
-   */
   public final List<ComponentSplice> componentSpliceList;
-  /**
-   * If {@link #breakDurationUs} is not {@link C#TIME_UNSET}, defines whether
-   * {@link #breakDurationUs} should be used to know when to return to the network feed. If
-   * {@link #breakDurationUs} is {@link C#TIME_UNSET}, the value is undefined.
-   */
   public final boolean autoReturn;
-  /**
-   * The duration of the splice in microseconds, or {@link C#TIME_UNSET} if no duration is present.
-   */
-  public final long breakDurationUs;
-  /**
-   * The unique program id as defined in SCTE35, Section 9.3.3.
-   */
+  public final long breakDuration;
   public final int uniqueProgramId;
-  /**
-   * Holds the value of {@code avail_num} as defined in SCTE35, Section 9.3.3.
-   */
   public final int availNum;
-  /**
-   * Holds the value of {@code avails_expected} as defined in SCTE35, Section 9.3.3.
-   */
   public final int availsExpected;
 
   private SpliceInsertCommand(long spliceEventId, boolean spliceEventCancelIndicator,
       boolean outOfNetworkIndicator, boolean programSpliceFlag, boolean spliceImmediateFlag,
       long programSplicePts, long programSplicePlaybackPositionUs,
-      List<ComponentSplice> componentSpliceList, boolean autoReturn, long breakDurationUs,
+      List<ComponentSplice> componentSpliceList, boolean autoReturn, long breakDuration,
       int uniqueProgramId, int availNum, int availsExpected) {
     this.spliceEventId = spliceEventId;
     this.spliceEventCancelIndicator = spliceEventCancelIndicator;
@@ -105,7 +57,7 @@ public final class SpliceInsertCommand extends SpliceCommand {
     this.programSplicePlaybackPositionUs = programSplicePlaybackPositionUs;
     this.componentSpliceList = Collections.unmodifiableList(componentSpliceList);
     this.autoReturn = autoReturn;
-    this.breakDurationUs = breakDurationUs;
+    this.breakDuration = breakDuration;
     this.uniqueProgramId = uniqueProgramId;
     this.availNum = availNum;
     this.availsExpected = availsExpected;
@@ -126,7 +78,7 @@ public final class SpliceInsertCommand extends SpliceCommand {
     }
     this.componentSpliceList = Collections.unmodifiableList(componentSpliceList);
     autoReturn = in.readByte() == 1;
-    breakDurationUs = in.readLong();
+    breakDuration = in.readLong();
     uniqueProgramId = in.readInt();
     availNum = in.readInt();
     availsExpected = in.readInt();
@@ -146,7 +98,7 @@ public final class SpliceInsertCommand extends SpliceCommand {
     int availNum = 0;
     int availsExpected = 0;
     boolean autoReturn = false;
-    long breakDurationUs = C.TIME_UNSET;
+    long duration = C.TIME_UNSET;
     if (!spliceEventCancelIndicator) {
       int headerByte = sectionData.readUnsignedByte();
       outOfNetworkIndicator = (headerByte & 0x80) != 0;
@@ -172,8 +124,7 @@ public final class SpliceInsertCommand extends SpliceCommand {
       if (durationFlag) {
         long firstByte = sectionData.readUnsignedByte();
         autoReturn = (firstByte & 0x80) != 0;
-        long breakDuration90khz = ((firstByte & 0x01) << 32) | sectionData.readUnsignedInt();
-        breakDurationUs = breakDuration90khz * 1000 / 90;
+        duration = ((firstByte & 0x01) << 32) | sectionData.readUnsignedInt();
       }
       uniqueProgramId = sectionData.readUnsignedShort();
       availNum = sectionData.readUnsignedByte();
@@ -182,7 +133,7 @@ public final class SpliceInsertCommand extends SpliceCommand {
     return new SpliceInsertCommand(spliceEventId, spliceEventCancelIndicator, outOfNetworkIndicator,
         programSpliceFlag, spliceImmediateFlag, programSplicePts,
         timestampAdjuster.adjustTsTimestamp(programSplicePts), componentSplices, autoReturn,
-        breakDurationUs, uniqueProgramId, availNum, availsExpected);
+        duration, uniqueProgramId, availNum, availsExpected);
   }
 
   /**
@@ -230,7 +181,7 @@ public final class SpliceInsertCommand extends SpliceCommand {
       componentSpliceList.get(i).writeToParcel(dest);
     }
     dest.writeByte((byte) (autoReturn ? 1 : 0));
-    dest.writeLong(breakDurationUs);
+    dest.writeLong(breakDuration);
     dest.writeInt(uniqueProgramId);
     dest.writeInt(availNum);
     dest.writeInt(availsExpected);

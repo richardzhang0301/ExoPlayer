@@ -19,7 +19,6 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.IntDef;
-import android.support.annotation.Nullable;
 import android.util.Log;
 import com.google.android.exoplayer2.audio.AudioCapabilities;
 import com.google.android.exoplayer2.audio.AudioProcessor;
@@ -28,9 +27,7 @@ import com.google.android.exoplayer2.audio.MediaCodecAudioRenderer;
 import com.google.android.exoplayer2.drm.DrmSessionManager;
 import com.google.android.exoplayer2.drm.FrameworkMediaCrypto;
 import com.google.android.exoplayer2.mediacodec.MediaCodecSelector;
-import com.google.android.exoplayer2.metadata.MetadataOutput;
 import com.google.android.exoplayer2.metadata.MetadataRenderer;
-import com.google.android.exoplayer2.text.TextOutput;
 import com.google.android.exoplayer2.text.TextRenderer;
 import com.google.android.exoplayer2.trackselection.TrackSelector;
 import com.google.android.exoplayer2.video.MediaCodecVideoRenderer;
@@ -82,7 +79,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   protected static final int MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY = 50;
 
   private final Context context;
-  @Nullable private final DrmSessionManager<FrameworkMediaCrypto> drmSessionManager;
+  private final DrmSessionManager<FrameworkMediaCrypto> drmSessionManager;
   private final @ExtensionRendererMode int extensionRendererMode;
   private final long allowedVideoJoiningTimeMs;
 
@@ -99,28 +96,29 @@ public class DefaultRenderersFactory implements RenderersFactory {
    *     playbacks are not required.
    */
   public DefaultRenderersFactory(Context context,
-      @Nullable DrmSessionManager<FrameworkMediaCrypto> drmSessionManager) {
+      DrmSessionManager<FrameworkMediaCrypto> drmSessionManager) {
     this(context, drmSessionManager, EXTENSION_RENDERER_MODE_OFF);
   }
 
   /**
    * @param context A {@link Context}.
    * @param drmSessionManager An optional {@link DrmSessionManager}. May be null if DRM protected
-   *     playbacks are not required.
+   *     playbacks are not required..
    * @param extensionRendererMode The extension renderer mode, which determines if and how
    *     available extension renderers are used. Note that extensions must be included in the
    *     application build for them to be considered available.
    */
   public DefaultRenderersFactory(Context context,
-      @Nullable DrmSessionManager<FrameworkMediaCrypto> drmSessionManager,
+      DrmSessionManager<FrameworkMediaCrypto> drmSessionManager,
       @ExtensionRendererMode int extensionRendererMode) {
-    this(context, drmSessionManager, extensionRendererMode, DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS);
+    this(context, drmSessionManager, extensionRendererMode,
+        DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS);
   }
 
   /**
    * @param context A {@link Context}.
    * @param drmSessionManager An optional {@link DrmSessionManager}. May be null if DRM protected
-   *     playbacks are not required.
+   *     playbacks are not required..
    * @param extensionRendererMode The extension renderer mode, which determines if and how
    *     available extension renderers are used. Note that extensions must be included in the
    *     application build for them to be considered available.
@@ -128,19 +126,21 @@ public class DefaultRenderersFactory implements RenderersFactory {
    *     to seamlessly join an ongoing playback.
    */
   public DefaultRenderersFactory(Context context,
-      @Nullable DrmSessionManager<FrameworkMediaCrypto> drmSessionManager,
+      DrmSessionManager<FrameworkMediaCrypto> drmSessionManager,
       @ExtensionRendererMode int extensionRendererMode, long allowedVideoJoiningTimeMs) {
     this.context = context;
     this.drmSessionManager = drmSessionManager;
     this.extensionRendererMode = extensionRendererMode;
     this.allowedVideoJoiningTimeMs = allowedVideoJoiningTimeMs;
+    Log.i(TAG, "create DefaultRenderersFactory");
   }
 
   @Override
   public Renderer[] createRenderers(Handler eventHandler,
       VideoRendererEventListener videoRendererEventListener,
       AudioRendererEventListener audioRendererEventListener,
-      TextOutput textRendererOutput, MetadataOutput metadataRendererOutput) {
+      TextRenderer.Output textRendererOutput, MetadataRenderer.Output metadataRendererOutput) {
+    Log.i(TAG, "createRenderers");
     ArrayList<Renderer> renderersList = new ArrayList<>();
     buildVideoRenderers(context, drmSessionManager, allowedVideoJoiningTimeMs,
         eventHandler, videoRendererEventListener, extensionRendererMode, renderersList);
@@ -168,10 +168,9 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @param out An array to which the built renderers should be appended.
    */
   protected void buildVideoRenderers(Context context,
-      @Nullable DrmSessionManager<FrameworkMediaCrypto> drmSessionManager,
-      long allowedVideoJoiningTimeMs, Handler eventHandler,
-      VideoRendererEventListener eventListener, @ExtensionRendererMode int extensionRendererMode,
-      ArrayList<Renderer> out) {
+      DrmSessionManager<FrameworkMediaCrypto> drmSessionManager, long allowedVideoJoiningTimeMs,
+      Handler eventHandler, VideoRendererEventListener eventListener,
+      @ExtensionRendererMode int extensionRendererMode, ArrayList<Renderer> out) {
     out.add(new MediaCodecVideoRenderer(context, MediaCodecSelector.DEFAULT,
         allowedVideoJoiningTimeMs, drmSessionManager, false, eventHandler, eventListener,
         MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY));
@@ -214,7 +213,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @param out An array to which the built renderers should be appended.
    */
   protected void buildAudioRenderers(Context context,
-      @Nullable DrmSessionManager<FrameworkMediaCrypto> drmSessionManager,
+      DrmSessionManager<FrameworkMediaCrypto> drmSessionManager,
       AudioProcessor[] audioProcessors, Handler eventHandler,
       AudioRendererEventListener eventListener, @ExtensionRendererMode int extensionRendererMode,
       ArrayList<Renderer> out) {
@@ -222,12 +221,16 @@ public class DefaultRenderersFactory implements RenderersFactory {
         eventHandler, eventListener, AudioCapabilities.getCapabilities(context), audioProcessors));
 
     if (extensionRendererMode == EXTENSION_RENDERER_MODE_OFF) {
+      Log.i(TAG, "EXTENSION_RENDERER_MODE_OFF");
       return;
     }
     int extensionRendererIndex = out.size();
     if (extensionRendererMode == EXTENSION_RENDERER_MODE_PREFER) {
+      Log.i(TAG, "EXTENSION_RENDERER_MODE_PREFER");
       extensionRendererIndex--;
     }
+
+    Log.i(TAG, "EXTENSION_RENDERER_MODE_ON");
 
     try {
       Class<?> clazz =
@@ -270,6 +273,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       Log.i(TAG, "Loaded FfmpegAudioRenderer.");
     } catch (ClassNotFoundException e) {
       // Expected if the app was built without the extension.
+      Log.i(TAG, "FfmpegAudioRenderer not found.");
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -285,8 +289,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @param extensionRendererMode The extension renderer mode.
    * @param out An array to which the built renderers should be appended.
    */
-  protected void buildTextRenderers(Context context, TextOutput output, Looper outputLooper,
-      @ExtensionRendererMode int extensionRendererMode,
+  protected void buildTextRenderers(Context context, TextRenderer.Output output,
+      Looper outputLooper, @ExtensionRendererMode int extensionRendererMode,
       ArrayList<Renderer> out) {
     out.add(new TextRenderer(output, outputLooper));
   }
@@ -301,8 +305,9 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @param extensionRendererMode The extension renderer mode.
    * @param out An array to which the built renderers should be appended.
    */
-  protected void buildMetadataRenderers(Context context, MetadataOutput output, Looper outputLooper,
-      @ExtensionRendererMode int extensionRendererMode, ArrayList<Renderer> out) {
+  protected void buildMetadataRenderers(Context context, MetadataRenderer.Output output,
+      Looper outputLooper, @ExtensionRendererMode int extensionRendererMode,
+      ArrayList<Renderer> out) {
     out.add(new MetadataRenderer(output, outputLooper));
   }
 

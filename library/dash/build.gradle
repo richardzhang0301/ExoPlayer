@@ -16,7 +16,7 @@ apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion project.ext.compileSdkVersion
-    buildToolsVersion project.ext.buildToolsVersion
+    //buildToolsVersion project.ext.buildToolsVersion
 
     defaultConfig {
         minSdkVersion project.ext.minSdkVersion
@@ -35,15 +35,11 @@ android {
 dependencies {
     compile project(modulePrefix + 'library-core')
     compile 'com.android.support:support-annotations:' + supportLibraryVersion
+    compile 'com.android.support:support-core-utils:' + supportLibraryVersion
     androidTestCompile project(modulePrefix + 'testutils')
     androidTestCompile 'com.google.dexmaker:dexmaker:' + dexmakerVersion
     androidTestCompile 'com.google.dexmaker:dexmaker-mockito:' + dexmakerVersion
     androidTestCompile 'org.mockito:mockito-core:' + mockitoVersion
-    testCompile project(modulePrefix + 'testutils')
-    testCompile 'com.google.truth:truth:' + truthVersion
-    testCompile 'junit:junit:' + junitVersion
-    testCompile 'org.mockito:mockito-core:' + mockitoVersion
-    testCompile 'org.robolectric:robolectric:' + robolectricVersion
 }
 
 ext {

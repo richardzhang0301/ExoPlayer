@@ -108,23 +108,21 @@ public final class DashTestRunner {
   private String widevineLicenseUrl;
   private DataSource.Factory dataSourceFactory;
 
+  @TargetApi(18)
   @SuppressWarnings("ResourceType")
   public static boolean isL1WidevineAvailable(String mimeType) {
-    if (Util.SDK_INT >= 18) {
-      try {
-        // Force L3 if secure decoder is not available.
-        if (MediaCodecUtil.getDecoderInfo(mimeType, true) == null) {
-          return false;
-        }
-        MediaDrm mediaDrm = MediaDrmBuilder.build();
-        String securityProperty = mediaDrm.getPropertyString(SECURITY_LEVEL_PROPERTY);
-        mediaDrm.release();
-        return WIDEVINE_SECURITY_LEVEL_1.equals(securityProperty);
-      } catch (MediaCodecUtil.DecoderQueryException e) {
-        throw new IllegalStateException(e);
+    try {
+      // Force L3 if secure decoder is not available.
+      if (MediaCodecUtil.getDecoderInfo(mimeType, true) == null) {
+        return false;
       }
+      MediaDrm mediaDrm = new MediaDrm(WIDEVINE_UUID);
+      String securityProperty = mediaDrm.getPropertyString(SECURITY_LEVEL_PROPERTY);
+      mediaDrm.release();
+      return WIDEVINE_SECURITY_LEVEL_1.equals(securityProperty);
+    } catch (MediaCodecUtil.DecoderQueryException | UnsupportedSchemeException e) {
+      throw new IllegalStateException(e);
     }
-    return false;
   }
 
   public DashTestRunner(String tag, HostActivity activity, Instrumentation instrumentation) {
@@ -325,9 +323,9 @@ public final class DashTestRunner {
       metricsLogger.logMetric(MetricsLogger.KEY_TEST_NAME, streamName);
       metricsLogger.logMetric(MetricsLogger.KEY_IS_CDD_LIMITED_RETRY, isCddLimitedRetry);
       metricsLogger.logMetric(MetricsLogger.KEY_FRAMES_DROPPED_COUNT,
-          videoCounters.droppedBufferCount);
+          videoCounters.droppedOutputBufferCount);
       metricsLogger.logMetric(MetricsLogger.KEY_MAX_CONSECUTIVE_FRAMES_DROPPED_COUNT,
-          videoCounters.maxConsecutiveDroppedBufferCount);
+          videoCounters.maxConsecutiveDroppedOutputBufferCount);
       metricsLogger.logMetric(MetricsLogger.KEY_FRAMES_SKIPPED_COUNT,
           videoCounters.skippedOutputBufferCount);
       metricsLogger.logMetric(MetricsLogger.KEY_FRAMES_RENDERED_COUNT,
@@ -345,20 +343,20 @@ public final class DashTestRunner {
             .assertSkippedOutputBufferCount(tag + VIDEO_TAG_SUFFIX, videoCounters, 0);
         // We allow one fewer output buffer due to the way that MediaCodecRenderer and the
         // underlying decoders handle the end of stream. This should be tightened up in the future.
-        DecoderCountersUtil.assertTotalBufferCount(tag + AUDIO_TAG_SUFFIX, audioCounters,
+        DecoderCountersUtil.assertTotalOutputBufferCount(tag + AUDIO_TAG_SUFFIX, audioCounters,
             audioCounters.inputBufferCount - 1, audioCounters.inputBufferCount);
-        DecoderCountersUtil.assertTotalBufferCount(tag + VIDEO_TAG_SUFFIX, videoCounters,
+        DecoderCountersUtil.assertTotalOutputBufferCount(tag + VIDEO_TAG_SUFFIX, videoCounters,
             videoCounters.inputBufferCount - 1, videoCounters.inputBufferCount);
       }
       try {
         int droppedFrameLimit = (int) Math.ceil(MAX_DROPPED_VIDEO_FRAME_FRACTION
-            * DecoderCountersUtil.getTotalBufferCount(videoCounters));
+            * DecoderCountersUtil.getTotalOutputBuffers(videoCounters));
         // Assert that performance is acceptable.
         // Assert that total dropped frames were within limit.
-        DecoderCountersUtil.assertDroppedBufferLimit(tag + VIDEO_TAG_SUFFIX, videoCounters,
+        DecoderCountersUtil.assertDroppedOutputBufferLimit(tag + VIDEO_TAG_SUFFIX, videoCounters,
             droppedFrameLimit);
         // Assert that consecutive dropped frames were within limit.
-        DecoderCountersUtil.assertConsecutiveDroppedBufferLimit(tag + VIDEO_TAG_SUFFIX,
+        DecoderCountersUtil.assertConsecutiveDroppedOutputBufferLimit(tag + VIDEO_TAG_SUFFIX,
             videoCounters, MAX_CONSECUTIVE_DROPPED_VIDEO_FRAMES);
       } catch (AssertionFailedError e) {
         if (trackSelector.includedAdditionalVideoFormats) {
@@ -455,23 +453,6 @@ public final class DashTestRunner {
     private static boolean isFormatHandled(int formatSupport) {
       return (formatSupport & RendererCapabilities.FORMAT_SUPPORT_MASK)
           == RendererCapabilities.FORMAT_HANDLED;
-    }
-
-  }
-
-  /**
-   * Creates a new {@code MediaDrm} object. The encapsulation ensures that the tests can be
-   * executed for API level < 18.
-   */
-  @TargetApi(18)
-  private static final class MediaDrmBuilder {
-
-    public static MediaDrm build () {
-      try {
-        return new MediaDrm(WIDEVINE_UUID);
-      } catch (UnsupportedSchemeException e) {
-        throw new IllegalStateException(e);
-      }
     }
 
   }

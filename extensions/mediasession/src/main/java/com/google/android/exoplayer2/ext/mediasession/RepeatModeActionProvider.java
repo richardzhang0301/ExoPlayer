@@ -1,3 +1,4 @@
+package com.google.android.exoplayer2.ext.mediasession;
 /*
  * Copyright (c) 2017 The Android Open Source Project
  *
@@ -13,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.android.exoplayer2.ext.mediasession;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -25,6 +25,12 @@ import com.google.android.exoplayer2.util.RepeatModeUtil;
  * Provides a custom action for toggling repeat modes.
  */
 public final class RepeatModeActionProvider implements MediaSessionConnector.CustomActionProvider {
+
+  /**
+   * The default repeat toggle modes.
+   */
+  public static final @RepeatModeUtil.RepeatToggleModes int DEFAULT_REPEAT_TOGGLE_MODES =
+      RepeatModeUtil.REPEAT_TOGGLE_MODE_ONE | RepeatModeUtil.REPEAT_TOGGLE_MODE_ALL;
 
   private static final String ACTION_REPEAT_MODE = "ACTION_EXO_REPEAT_MODE";
 
@@ -39,13 +45,13 @@ public final class RepeatModeActionProvider implements MediaSessionConnector.Cus
    * Creates a new instance.
    * <p>
    * Equivalent to {@code RepeatModeActionProvider(context, player,
-   *     MediaSessionConnector.DEFAULT_REPEAT_TOGGLE_MODES)}.
+   *     RepeatModeActionProvider.DEFAULT_REPEAT_TOGGLE_MODES)}.
    *
    * @param context The context.
    * @param player The player on which to toggle the repeat mode.
    */
   public RepeatModeActionProvider(Context context, Player player) {
-    this(context, player, MediaSessionConnector.DEFAULT_REPEAT_TOGGLE_MODES);
+    this(context, player, DEFAULT_REPEAT_TOGGLE_MODES);
   }
 
   /**

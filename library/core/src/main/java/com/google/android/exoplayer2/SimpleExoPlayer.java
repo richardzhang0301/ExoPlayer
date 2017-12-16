@@ -31,11 +31,11 @@ import com.google.android.exoplayer2.audio.AudioAttributes;
 import com.google.android.exoplayer2.audio.AudioRendererEventListener;
 import com.google.android.exoplayer2.decoder.DecoderCounters;
 import com.google.android.exoplayer2.metadata.Metadata;
-import com.google.android.exoplayer2.metadata.MetadataOutput;
+import com.google.android.exoplayer2.metadata.MetadataRenderer;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.text.Cue;
-import com.google.android.exoplayer2.text.TextOutput;
+import com.google.android.exoplayer2.text.TextRenderer;
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
 import com.google.android.exoplayer2.trackselection.TrackSelector;
 import com.google.android.exoplayer2.util.Util;
@@ -89,8 +89,8 @@ public class SimpleExoPlayer implements ExoPlayer {
   private final ExoPlayer player;
   private final ComponentListener componentListener;
   private final CopyOnWriteArraySet<VideoListener> videoListeners;
-  private final CopyOnWriteArraySet<TextOutput> textOutputs;
-  private final CopyOnWriteArraySet<MetadataOutput> metadataOutputs;
+  private final CopyOnWriteArraySet<TextRenderer.Output> textOutputs;
+  private final CopyOnWriteArraySet<MetadataRenderer.Output> metadataOutputs;
   private final int videoRendererCount;
   private final int audioRendererCount;
 
@@ -145,7 +145,7 @@ public class SimpleExoPlayer implements ExoPlayer {
     videoScalingMode = C.VIDEO_SCALING_MODE_DEFAULT;
 
     // Build the player and associated objects.
-    player = createExoPlayerImpl(renderers, trackSelector, loadControl);
+    player = new ExoPlayerImpl(renderers, trackSelector, loadControl);
   }
 
   /**
@@ -491,7 +491,7 @@ public class SimpleExoPlayer implements ExoPlayer {
    *
    * @param listener The output to register.
    */
-  public void addTextOutput(TextOutput listener) {
+  public void addTextOutput(TextRenderer.Output listener) {
     textOutputs.add(listener);
   }
 
@@ -500,7 +500,7 @@ public class SimpleExoPlayer implements ExoPlayer {
    *
    * @param listener The output to remove.
    */
-  public void removeTextOutput(TextOutput listener) {
+  public void removeTextOutput(TextRenderer.Output listener) {
     textOutputs.remove(listener);
   }
 
@@ -508,10 +508,10 @@ public class SimpleExoPlayer implements ExoPlayer {
    * Sets an output to receive text events, removing all existing outputs.
    *
    * @param output The output.
-   * @deprecated Use {@link #addTextOutput(TextOutput)}.
+   * @deprecated Use {@link #addTextOutput(TextRenderer.Output)}.
    */
   @Deprecated
-  public void setTextOutput(TextOutput output) {
+  public void setTextOutput(TextRenderer.Output output) {
     textOutputs.clear();
     if (output != null) {
       addTextOutput(output);
@@ -519,13 +519,13 @@ public class SimpleExoPlayer implements ExoPlayer {
   }
 
   /**
-   * Equivalent to {@link #removeTextOutput(TextOutput)}.
+   * Equivalent to {@link #removeTextOutput(TextRenderer.Output)}.
    *
    * @param output The output to clear.
-   * @deprecated Use {@link #removeTextOutput(TextOutput)}.
+   * @deprecated Use {@link #removeTextOutput(TextRenderer.Output)}.
    */
   @Deprecated
-  public void clearTextOutput(TextOutput output) {
+  public void clearTextOutput(TextRenderer.Output output) {
     removeTextOutput(output);
   }
 
@@ -534,7 +534,7 @@ public class SimpleExoPlayer implements ExoPlayer {
    *
    * @param listener The output to register.
    */
-  public void addMetadataOutput(MetadataOutput listener) {
+  public void addMetadataOutput(MetadataRenderer.Output listener) {
     metadataOutputs.add(listener);
   }
 
@@ -543,7 +543,7 @@ public class SimpleExoPlayer implements ExoPlayer {
    *
    * @param listener The output to remove.
    */
-  public void removeMetadataOutput(MetadataOutput listener) {
+  public void removeMetadataOutput(MetadataRenderer.Output listener) {
     metadataOutputs.remove(listener);
   }
 
@@ -551,10 +551,10 @@ public class SimpleExoPlayer implements ExoPlayer {
    * Sets an output to receive metadata events, removing all existing outputs.
    *
    * @param output The output.
-   * @deprecated Use {@link #addMetadataOutput(MetadataOutput)}.
+   * @deprecated Use {@link #addMetadataOutput(MetadataRenderer.Output)}.
    */
   @Deprecated
-  public void setMetadataOutput(MetadataOutput output) {
+  public void setMetadataOutput(MetadataRenderer.Output output) {
     metadataOutputs.clear();
     if (output != null) {
       addMetadataOutput(output);
@@ -562,13 +562,13 @@ public class SimpleExoPlayer implements ExoPlayer {
   }
 
   /**
-   * Equivalent to {@link #removeMetadataOutput(MetadataOutput)}.
+   * Equivalent to {@link #removeMetadataOutput(MetadataRenderer.Output)}.
    *
    * @param output The output to clear.
-   * @deprecated Use {@link #removeMetadataOutput(MetadataOutput)}.
+   * @deprecated Use {@link #removeMetadataOutput(MetadataRenderer.Output)}.
    */
   @Deprecated
-  public void clearMetadataOutput(MetadataOutput output) {
+  public void clearMetadataOutput(MetadataRenderer.Output output) {
     removeMetadataOutput(output);
   }
 
@@ -640,16 +640,6 @@ public class SimpleExoPlayer implements ExoPlayer {
   @Override
   public void setRepeatMode(@RepeatMode int repeatMode) {
     player.setRepeatMode(repeatMode);
-  }
-
-  @Override
-  public void setShuffleModeEnabled(boolean shuffleModeEnabled) {
-    player.setShuffleModeEnabled(shuffleModeEnabled);
-  }
-
-  @Override
-  public boolean getShuffleModeEnabled() {
-    return player.getShuffleModeEnabled();
   }
 
   @Override
@@ -755,16 +745,6 @@ public class SimpleExoPlayer implements ExoPlayer {
   }
 
   @Override
-  public int getNextWindowIndex() {
-    return player.getNextWindowIndex();
-  }
-
-  @Override
-  public int getPreviousWindowIndex() {
-    return player.getPreviousWindowIndex();
-  }
-
-  @Override
   public long getDuration() {
     return player.getDuration();
   }
@@ -816,19 +796,6 @@ public class SimpleExoPlayer implements ExoPlayer {
 
   // Internal methods.
 
-  /**
-   * Creates the ExoPlayer implementation used by this {@link SimpleExoPlayer}.
-   *
-   * @param renderers The {@link Renderer}s that will be used by the instance.
-   * @param trackSelector The {@link TrackSelector} that will be used by the instance.
-   * @param loadControl The {@link LoadControl} that will be used by the instance.
-   * @return A new {@link ExoPlayer} instance.
-   */
-  protected ExoPlayer createExoPlayerImpl(Renderer[] renderers, TrackSelector trackSelector,
-      LoadControl loadControl) {
-    return new ExoPlayerImpl(renderers, trackSelector, loadControl);
-  }
-
   private void removeSurfaceCallbacks() {
     if (textureView != null) {
       if (textureView.getSurfaceTextureListener() != componentListener) {
@@ -869,8 +836,8 @@ public class SimpleExoPlayer implements ExoPlayer {
   }
 
   private final class ComponentListener implements VideoRendererEventListener,
-      AudioRendererEventListener, TextOutput, MetadataOutput, SurfaceHolder.Callback,
-      TextureView.SurfaceTextureListener {
+      AudioRendererEventListener, TextRenderer.Output, MetadataRenderer.Output,
+      SurfaceHolder.Callback, TextureView.SurfaceTextureListener {
 
     // VideoRendererEventListener implementation
 
@@ -976,10 +943,10 @@ public class SimpleExoPlayer implements ExoPlayer {
     }
 
     @Override
-    public void onAudioSinkUnderrun(int bufferSize, long bufferSizeMs,
+    public void onAudioTrackUnderrun(int bufferSize, long bufferSizeMs,
         long elapsedSinceLastFeedMs) {
       if (audioDebugListener != null) {
-        audioDebugListener.onAudioSinkUnderrun(bufferSize, bufferSizeMs, elapsedSinceLastFeedMs);
+        audioDebugListener.onAudioTrackUnderrun(bufferSize, bufferSizeMs, elapsedSinceLastFeedMs);
       }
     }
 
@@ -993,20 +960,20 @@ public class SimpleExoPlayer implements ExoPlayer {
       audioSessionId = C.AUDIO_SESSION_ID_UNSET;
     }
 
-    // TextOutput implementation
+    // TextRenderer.Output implementation
 
     @Override
     public void onCues(List<Cue> cues) {
-      for (TextOutput textOutput : textOutputs) {
+      for (TextRenderer.Output textOutput : textOutputs) {
         textOutput.onCues(cues);
       }
     }
 
-    // MetadataOutput implementation
+    // MetadataRenderer.Output implementation
 
     @Override
     public void onMetadata(Metadata metadata) {
-      for (MetadataOutput metadataOutput : metadataOutputs) {
+      for (MetadataRenderer.Output metadataOutput : metadataOutputs) {
         metadataOutput.onMetadata(metadata);
       }
     }

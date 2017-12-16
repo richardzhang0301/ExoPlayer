@@ -17,12 +17,11 @@ package com.google.android.exoplayer2.testutil;
 
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.Format;
-import com.google.android.exoplayer2.source.TrackGroup;
-import java.util.Random;
+import com.google.android.exoplayer2.trackselection.TrackSelection;
 
 /**
  * Fake data set emulating the data of an adaptive media source.
- * It provides chunk data for all {@link Format}s in the given {@link TrackGroup}.
+ * It provides chunk data for all {@link Format}s in the given {@link TrackSelection}.
  */
 public final class FakeAdaptiveDataSet extends FakeDataSet {
 
@@ -31,86 +30,52 @@ public final class FakeAdaptiveDataSet extends FakeDataSet {
    */
   public static final class Factory {
 
-    private static final Random random = new Random();
-
     private final long chunkDurationUs;
-    private final double bitratePercentStdDev;
 
-    /**
-     * Set up factory for {@link FakeAdaptiveDataSet}s with a chunk duration and the standard
-     * deviation of the chunk size.
-     *
-     * @param chunkDurationUs The chunk duration to use in microseconds.
-     * @param bitratePercentStdDev The standard deviation used to generate the chunk sizes centered
-     *     around the average bitrate of the {@link Format}s. The standard deviation is given in
-     *     percent (of the average size).
-     */
-    public Factory(long chunkDurationUs, double bitratePercentStdDev) {
+    public Factory(long chunkDurationUs) {
       this.chunkDurationUs = chunkDurationUs;
-      this.bitratePercentStdDev = bitratePercentStdDev;
     }
 
-    /**
-     * Returns a new {@link FakeAdaptiveDataSet} for the given {@link TrackGroup}.
-     *
-     * @param trackGroup The {@link TrackGroup} for which the data set is to be created.
-     * @param mediaDurationUs The total duration of the fake data set in microseconds.
-     */
-    public FakeAdaptiveDataSet createDataSet(TrackGroup trackGroup, long mediaDurationUs) {
-      return new FakeAdaptiveDataSet(trackGroup, mediaDurationUs, chunkDurationUs,
-          bitratePercentStdDev, random);
+    public FakeAdaptiveDataSet createDataSet(TrackSelection trackSelection, long mediaDurationUs) {
+      return new FakeAdaptiveDataSet(trackSelection, mediaDurationUs, chunkDurationUs);
     }
 
   }
 
-  private final int chunkCount;
+  private final long chunkCount;
   private final long chunkDurationUs;
   private final long lastChunkDurationUs;
 
-  /**
-   * Create {@link FakeAdaptiveDataSet} using a {@link TrackGroup} and meta data about the media.
-   *
-   * @param trackGroup The {@link TrackGroup} for which the data set is to be created.
-   * @param mediaDurationUs The total duration of the fake data set in microseconds.
-   * @param chunkDurationUs The chunk duration to use in microseconds.
-   * @param bitratePercentStdDev  The standard deviation used to generate the chunk sizes centered
-   *     around the average bitrate of the {@link Format}s in the {@link TrackGroup}. The standard
-   *     deviation is given in percent (of the average size).
-   * @param random A {@link Random} instance used to generate random chunk sizes.
-   */
-  /* package */ FakeAdaptiveDataSet(TrackGroup trackGroup, long mediaDurationUs,
-      long chunkDurationUs, double bitratePercentStdDev, Random random) {
+  public FakeAdaptiveDataSet(TrackSelection trackSelection, long mediaDurationUs,
+      long chunkDurationUs) {
     this.chunkDurationUs = chunkDurationUs;
+    int selectionCount = trackSelection.length();
     long lastChunkDurationUs = mediaDurationUs % chunkDurationUs;
     int fullChunks = (int) (mediaDurationUs / chunkDurationUs);
-    this.lastChunkDurationUs = lastChunkDurationUs == 0 ? chunkDurationUs : lastChunkDurationUs;
-    this.chunkCount = lastChunkDurationUs == 0 ? fullChunks : fullChunks + 1;
-    double[] bitrateFactors = new double[chunkCount];
-    for (int i = 0; i < chunkCount; i++) {
-      bitrateFactors[i] = 1.0 + random.nextGaussian() * bitratePercentStdDev / 100.0;
-    }
-    for (int i = 0; i < trackGroup.length; i++) {
+    for (int i = 0; i < selectionCount; i++) {
       String uri = getUri(i);
-      Format format = trackGroup.getFormat(i);
-      double avgChunkLength = format.bitrate * chunkDurationUs / (8 * C.MICROS_PER_SECOND);
+      Format format = trackSelection.getFormat(i);
+      int chunkLength = (int) (format.bitrate * chunkDurationUs / (8 * C.MICROS_PER_SECOND));
       FakeData newData = this.newData(uri);
       for (int j = 0; j < fullChunks; j++) {
-        newData.appendReadData((int) (avgChunkLength * bitrateFactors[j]));
+        newData.appendReadData(chunkLength);
       }
       if (lastChunkDurationUs > 0) {
-        int lastChunkLength = (int) (format.bitrate * bitrateFactors[bitrateFactors.length - 1]
-            * (mediaDurationUs % chunkDurationUs) / (8 * C.MICROS_PER_SECOND));
+        int lastChunkLength = (int) (format.bitrate * (mediaDurationUs % chunkDurationUs)
+            / (8 * C.MICROS_PER_SECOND));
         newData.appendReadData(lastChunkLength);
       }
     }
+    this.lastChunkDurationUs = lastChunkDurationUs == 0 ? chunkDurationUs : lastChunkDurationUs;
+    this.chunkCount = lastChunkDurationUs == 0 ? fullChunks : fullChunks + 1;
   }
 
-  public int getChunkCount() {
+  public long getChunkCount() {
     return chunkCount;
   }
 
-  public String getUri(int trackIndex) {
-    return "fake://adaptive.media/" + trackIndex;
+  public String getUri(int trackSelectionIndex) {
+    return "fake://adaptive.media/" + Integer.toString(trackSelectionIndex);
   }
 
   public long getChunkDuration(int chunkIndex) {

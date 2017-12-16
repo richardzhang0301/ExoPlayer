@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.google.android.exoplayer2.util;
 
 import android.support.annotation.NonNull;
@@ -104,12 +105,12 @@ public final class AtomicFile {
     } catch (FileNotFoundException e) {
       File parent = baseName.getParentFile();
       if (!parent.mkdirs()) {
-        throw new IOException("Couldn't create directory " + baseName, e);
+        throw new IOException("Couldn't create directory " + baseName);
       }
       try {
         str = new AtomicFileOutputStream(baseName);
       } catch (FileNotFoundException e2) {
-        throw new IOException("Couldn't create " + baseName, e2);
+        throw new IOException("Couldn't create " + baseName);
       }
     }
     return str;

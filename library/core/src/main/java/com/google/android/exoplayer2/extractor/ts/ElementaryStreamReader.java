@@ -15,7 +15,6 @@
  */
 package com.google.android.exoplayer2.extractor.ts;
 
-import com.google.android.exoplayer2.ParserException;
 import com.google.android.exoplayer2.extractor.ExtractorOutput;
 import com.google.android.exoplayer2.extractor.TrackOutput;
 import com.google.android.exoplayer2.util.ParsableByteArray;
@@ -51,9 +50,8 @@ public interface ElementaryStreamReader {
    * Consumes (possibly partial) data from the current packet.
    *
    * @param data The data to consume.
-   * @throws ParserException If the data could not be parsed.
    */
-  void consume(ParsableByteArray data) throws ParserException;
+  void consume(ParsableByteArray data);
 
   /**
    * Called when a packet ends.

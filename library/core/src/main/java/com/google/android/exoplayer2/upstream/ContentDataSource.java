@@ -24,7 +24,7 @@ import java.io.EOFException;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.channels.FileChannel;
+import java.io.InputStream;
 
 /**
  * A {@link DataSource} for reading from a content URI.
@@ -47,7 +47,7 @@ public final class ContentDataSource implements DataSource {
 
   private Uri uri;
   private AssetFileDescriptor assetFileDescriptor;
-  private FileInputStream inputStream;
+  private InputStream inputStream;
   private long bytesRemaining;
   private boolean opened;
 
@@ -88,11 +88,14 @@ public final class ContentDataSource implements DataSource {
       } else {
         long assetFileDescriptorLength = assetFileDescriptor.getLength();
         if (assetFileDescriptorLength == AssetFileDescriptor.UNKNOWN_LENGTH) {
-          // The asset must extend to the end of the file. If FileInputStream.getChannel().size()
-          // returns 0 then the remaining length cannot be determined.
-          FileChannel channel = inputStream.getChannel();
-          long channelSize = channel.size();
-          bytesRemaining = channelSize == 0 ? C.LENGTH_UNSET : channelSize - channel.position();
+          // The asset must extend to the end of the file.
+          bytesRemaining = inputStream.available();
+          if (bytesRemaining == 0) {
+            // FileInputStream.available() returns 0 if the remaining length cannot be determined,
+            // or if it's greater than Integer.MAX_VALUE. We don't know the true length in either
+            // case, so treat as unbounded.
+            bytesRemaining = C.LENGTH_UNSET;
+          }
         } else {
           bytesRemaining = assetFileDescriptorLength - skipped;
         }

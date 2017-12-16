@@ -28,7 +28,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Default {@link TsPayloadReader.Factory} implementation.
+ * Default implementation for {@link TsPayloadReader.Factory}.
  */
 public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Factory {
 
@@ -94,12 +94,9 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
       case TsExtractor.TS_STREAM_TYPE_MPA:
       case TsExtractor.TS_STREAM_TYPE_MPA_LSF:
         return new PesReader(new MpegAudioReader(esInfo.language));
-      case TsExtractor.TS_STREAM_TYPE_AAC_ADTS:
+      case TsExtractor.TS_STREAM_TYPE_AAC:
         return isSet(FLAG_IGNORE_AAC_STREAM)
             ? null : new PesReader(new AdtsReader(false, esInfo.language));
-      case TsExtractor.TS_STREAM_TYPE_AAC_LATM:
-        return isSet(FLAG_IGNORE_AAC_STREAM)
-            ? null : new PesReader(new LatmReader(esInfo.language));
       case TsExtractor.TS_STREAM_TYPE_AC3:
       case TsExtractor.TS_STREAM_TYPE_E_AC3:
         return new PesReader(new Ac3Reader(esInfo.language));

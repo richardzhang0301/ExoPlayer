@@ -15,7 +15,6 @@
  */
 package com.google.android.exoplayer2.upstream.cache;
 
-import android.support.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.NavigableSet;
@@ -72,7 +71,7 @@ public interface Cache {
       super(message);
     }
 
-    public CacheException(Throwable cause) {
+    public CacheException(IOException cause) {
       super(cause);
     }
 
@@ -105,7 +104,7 @@ public interface Cache {
    * @param key The key for which spans should be returned.
    * @return The spans for the key. May be null if there are no such spans.
    */
-  @Nullable NavigableSet<CacheSpan> getCachedSpans(String key);
+  NavigableSet<CacheSpan> getCachedSpans(String key);
 
   /**
    * Returns all keys in the cache.
@@ -140,7 +139,7 @@ public interface Cache {
    * @param key The key of the data being requested.
    * @param position The position of the data being requested.
    * @return The {@link CacheSpan}.
-   * @throws InterruptedException If the thread was interrupted.
+   * @throws InterruptedException
    */
   CacheSpan startReadWrite(String key, long position) throws InterruptedException, CacheException;
 
@@ -152,7 +151,7 @@ public interface Cache {
    * @param position The position of the data being requested.
    * @return The {@link CacheSpan}. Or null if the cache entry is locked.
    */
-  @Nullable CacheSpan startReadWriteNonBlocking(String key, long position) throws CacheException;
+  CacheSpan startReadWriteNonBlocking(String key, long position) throws CacheException;
 
   /**
    * Obtains a cache file into which data can be written. Must only be called when holding a

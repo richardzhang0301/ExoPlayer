@@ -16,7 +16,6 @@
 package com.google.android.exoplayer2.extractor.ts;
 
 import android.util.SparseArray;
-import com.google.android.exoplayer2.ParserException;
 import com.google.android.exoplayer2.extractor.ExtractorOutput;
 import com.google.android.exoplayer2.extractor.TrackOutput;
 import com.google.android.exoplayer2.util.ParsableByteArray;
@@ -197,8 +196,7 @@ public interface TsPayloadReader {
    *
    * @param data The TS packet. The position will be set to the start of the payload.
    * @param payloadUnitStartIndicator Whether payloadUnitStartIndicator was set on the TS packet.
-   * @throws ParserException If the payload could not be parsed.
    */
-  void consume(ParsableByteArray data, boolean payloadUnitStartIndicator) throws ParserException;
+  void consume(ParsableByteArray data, boolean payloadUnitStartIndicator);
 
 }

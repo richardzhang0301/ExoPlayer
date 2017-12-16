@@ -16,7 +16,7 @@ apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion project.ext.compileSdkVersion
-    buildToolsVersion project.ext.buildToolsVersion
+    //buildToolsVersion project.ext.buildToolsVersion
 
     defaultConfig {
         minSdkVersion project.ext.minSdkVersion
@@ -31,7 +31,7 @@ android {
 
 dependencies {
     compile project(modulePrefix + 'library-core')
-    compile('com.squareup.okhttp3:okhttp:3.9.0') {
+    compile('com.squareup.okhttp3:okhttp:3.8.1') {
         exclude group: 'org.json'
     }
 }

@@ -65,7 +65,7 @@ public final class FlacStreamInfo {
   }
 
   public int maxDecodedFrameSize() {
-    return maxBlockSize * channels * (bitsPerSample / 8);
+    return maxBlockSize * channels * 2;
   }
 
   public int bitRate() {

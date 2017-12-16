@@ -88,8 +88,7 @@ public final class RandomTrackSelection extends BaseTrackSelection {
   }
 
   @Override
-  public void updateSelectedTrack(long playbackPositionUs, long bufferedDurationUs,
-      long availableDurationUs) {
+  public void updateSelectedTrack(long bufferedDurationUs) {
     // Count the number of non-blacklisted formats.
     long nowMs = SystemClock.elapsedRealtime();
     int nonBlacklistedFormatCount = 0;
