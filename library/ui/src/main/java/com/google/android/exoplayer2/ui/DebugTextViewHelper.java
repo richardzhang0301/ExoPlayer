@@ -26,6 +26,8 @@ import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.decoder.DecoderCounters;
 import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
+
+import java.text.DecimalFormat;
 import java.util.Locale;
 
 /**
@@ -40,6 +42,13 @@ public final class DebugTextViewHelper implements Runnable, Player.EventListener
   private final TextView textView;
 
   private boolean started;
+
+  private final int MAX_CHANNEL_COUNT = 8;
+
+  private double azimuth;
+  private double[][] volumeMatrix = new double[MAX_CHANNEL_COUNT][MAX_CHANNEL_COUNT];
+
+  private static DecimalFormat df2 = new DecimalFormat("0.00");
 
   /**
    * @param player The {@link SimpleExoPlayer} from which debug information should be obtained.
@@ -130,7 +139,7 @@ public final class DebugTextViewHelper implements Runnable, Player.EventListener
   @SuppressLint("SetTextI18n")
   private void updateAndPost() {
     textView.setText(getPlayerStateString() + getPlayerWindowIndexString() + getVideoString()
-        + getAudioString());
+        + getAudioString() + getSpatialAudioString() + getVolumeMatrix());
     textView.removeCallbacks(this);
     textView.postDelayed(this, REFRESH_INTERVAL_MS);
   }
@@ -179,6 +188,39 @@ public final class DebugTextViewHelper implements Runnable, Player.EventListener
     return "\n" + format.sampleMimeType + "(id:" + format.id + " hz:" + format.sampleRate + " ch:"
         + format.channelCount
         + getDecoderCountersBufferCountString(player.getAudioDecoderCounters()) + ")";
+  }
+
+  private String getSpatialAudioString() {
+    return "\nAzimuth:" + df2.format(Math.toDegrees(azimuth));
+  }
+
+  private String getVolumeMatrix() {
+    return "\nL:" + getVolumeMatrixChannel(0) + "\nR:" + getVolumeMatrixChannel(1) +
+            "\nC:" + getVolumeMatrixChannel(2) + "\nLFE: " + getVolumeMatrixChannel(3) +
+            "\nLSR: " + getVolumeMatrixChannel(4) + "\nRSR: " + getVolumeMatrixChannel(5) +
+            "\nLSS: " + getVolumeMatrixChannel(6) + "\nRSS: " + getVolumeMatrixChannel(7);
+  }
+
+  private String getVolumeMatrixChannel(int i) {
+    String msg = "";
+
+    for(int j = 0; j < volumeMatrix[i].length; j++) {
+      msg += df2.format(volumeMatrix[i][j]) + ", ";
+    }
+    return msg.substring(0, msg.length() - 2);
+  }
+
+  public void setAzimuth(double azimuth) {
+    this.azimuth = -azimuth;
+  }
+
+  public void setVolumeMatrix(double[][] matrix) {
+    //volumeMatrix = matrix;
+    for(int i = 0; i < matrix.length; i++) {
+      for(int j = 0; j < matrix[i].length; j++) {
+        volumeMatrix[i][j] = matrix[i][j];
+      }
+    }
   }
 
   private static String getDecoderCountersBufferCountString(DecoderCounters counters) {

@@ -279,6 +279,9 @@ public final class AudioTrack {
 
   private final AudioCapabilities audioCapabilities;
   private final ChannelMappingAudioProcessor channelMappingAudioProcessor;
+  private final HPSAudioProcessor hpsAudioProcessor;
+  private final EightBallAudioProcessor eightBallAudioProcessor;
+  private final VirtualSpeakersHeadTrackingAudioProcessor virtualSpeakersHeadTrackingAudioProcessor;
   private final SonicAudioProcessor sonicAudioProcessor;
   private final AudioProcessor[] availableAudioProcessors;
   private final Listener listener;
@@ -374,12 +377,24 @@ public final class AudioTrack {
       audioTrackUtil = new AudioTrackUtil();
     }
     channelMappingAudioProcessor = new ChannelMappingAudioProcessor();
+    hpsAudioProcessor = new HPSAudioProcessor();
+    eightBallAudioProcessor = new EightBallAudioProcessor();
+    virtualSpeakersHeadTrackingAudioProcessor = new VirtualSpeakersHeadTrackingAudioProcessor();
     sonicAudioProcessor = new SonicAudioProcessor();
-    availableAudioProcessors = new AudioProcessor[3 + audioProcessors.length];
+    //From 3 audio processors to 4 (Added 8Ball processor)
+    //From 4 audio processors to 5 (Added Virtual Speaker Head Tracking processor)
+    //From 5 audio processors to 6 (Added HPS processor)
+    availableAudioProcessors = new AudioProcessor[5 + audioProcessors.length];
     availableAudioProcessors[0] = new ResamplingAudioProcessor();
     availableAudioProcessors[1] = channelMappingAudioProcessor;
-    System.arraycopy(audioProcessors, 0, availableAudioProcessors, 2, audioProcessors.length);
-    availableAudioProcessors[2 + audioProcessors.length] = sonicAudioProcessor;
+    //Added the 8Ball processor to the DSP chain of the current audio track
+    //availableAudioProcessors[2] = eightBallAudioProcessor;
+    availableAudioProcessors[2] = virtualSpeakersHeadTrackingAudioProcessor;
+    availableAudioProcessors[3] = hpsAudioProcessor;
+    //The 3rd audio processor becomes the 4rd one
+    //The 4rd audio processor becomes the 5rd one
+    System.arraycopy(audioProcessors, 0, availableAudioProcessors, 4, audioProcessors.length);
+    availableAudioProcessors[4 + audioProcessors.length] = sonicAudioProcessor;
     playheadOffsets = new long[MAX_PLAYHEAD_OFFSET_COUNT];
     volume = 1.0f;
     startMediaTimeState = START_NOT_SET;
@@ -1066,6 +1081,24 @@ public final class AudioTrack {
       tunneling = false;
       audioSessionId = C.AUDIO_SESSION_ID_UNSET;
       reset();
+    }
+  }
+
+  public void set8BallVolume(float[] volumes) {
+    if(eightBallAudioProcessor != null) {
+      eightBallAudioProcessor.set8BallVolume(volumes);
+    }
+  }
+
+  public void setAzimuth(double azimuth) {
+    if(virtualSpeakersHeadTrackingAudioProcessor != null) {
+      virtualSpeakersHeadTrackingAudioProcessor.setAzimuth(azimuth);
+    }
+  }
+
+  public void setVolumeMatrix(double[][] volumeMatrix) {
+    if(virtualSpeakersHeadTrackingAudioProcessor != null) {
+      virtualSpeakersHeadTrackingAudioProcessor.setVolumeMatrix(volumeMatrix);
     }
   }
 

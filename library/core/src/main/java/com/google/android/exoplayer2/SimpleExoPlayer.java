@@ -111,6 +111,8 @@ public class SimpleExoPlayer implements ExoPlayer {
   private AudioAttributes audioAttributes;
   private float audioVolume;
 
+  public double azimuth;
+
   protected SimpleExoPlayer(RenderersFactory renderersFactory, TrackSelector trackSelector,
       LoadControl loadControl) {
     componentListener = new ComponentListener();
@@ -377,6 +379,51 @@ public class SimpleExoPlayer implements ExoPlayer {
     for (Renderer renderer : renderers) {
       if (renderer.getTrackType() == C.TRACK_TYPE_AUDIO) {
         messages[count++] = new ExoPlayerMessage(renderer, C.MSG_SET_VOLUME, audioVolume);
+      }
+    }
+    player.sendMessages(messages);
+  }
+
+  /**
+   * Sets the audio volume for each audio track of 4 audio tracks (8 Ball), with 0 being silence and 1 being unity gain.
+   *
+   * @param volumes The sub volume array
+   */
+  public void set8BallVolume(float[] volumes) {
+    if(volumes.length != 4)
+      return;
+
+    //Set volume to the audio track in MediaCodecAudioRenderer through messages
+    ExoPlayerMessage[] messages = new ExoPlayerMessage[audioRendererCount];
+    int count = 0;
+    for (Renderer renderer : renderers) {
+      if (renderer.getTrackType() == C.TRACK_TYPE_AUDIO) {
+        messages[count] = new ExoPlayerMessage(renderer, C.MSG_SET_8BALL_VOLUME, volumes);
+        count++;
+      }
+    }
+    player.sendMessages(messages);
+
+  }
+
+  public void setAzimuth(double azimuth) {
+    this.azimuth = azimuth;
+    ExoPlayerMessage[] messages = new ExoPlayerMessage[audioRendererCount];
+    int count = 0;
+    for (Renderer renderer : renderers) {
+      if (renderer.getTrackType() == C.TRACK_TYPE_AUDIO) {
+        messages[count++] = new ExoPlayerMessage(renderer, C.MSG_SET_AZIMUTH, azimuth);
+      }
+    }
+    player.sendMessages(messages);
+  }
+
+  public void setVolumeMatrix(double[][] volumeMatrix) {
+    ExoPlayerMessage[] messages = new ExoPlayerMessage[audioRendererCount];
+    int count = 0;
+    for (Renderer renderer : renderers) {
+      if (renderer.getTrackType() == C.TRACK_TYPE_AUDIO) {
+        messages[count++] = new ExoPlayerMessage(renderer, C.MSG_SET_VOLUME_MATRIX, volumeMatrix);
       }
     }
     player.sendMessages(messages);

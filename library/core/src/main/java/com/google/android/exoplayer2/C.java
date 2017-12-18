@@ -515,6 +515,13 @@ public final class C {
    * A type constant for metadata tracks.
    */
   public static final int TRACK_TYPE_METADATA = 4;
+
+  public static final int MSG_SET_8BALL_VOLUME = 5;
+
+  public static final int MSG_SET_AZIMUTH = 6;
+
+  public static final int MSG_SET_VOLUME_MATRIX = 7;
+
   /**
    * Applications or extensions may define custom {@code TRACK_TYPE_*} constants greater than or
    * equal to this value.

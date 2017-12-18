@@ -396,6 +396,19 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   public void handleMessage(int messageType, Object message) throws ExoPlaybackException {
     switch (messageType) {
+      //Setup 8Ball volume the same as existing MSG_SET_VOLUME message
+      case C.MSG_SET_8BALL_VOLUME:
+        audioTrack.set8BallVolume((float[]) message);
+        break;
+
+      case C.MSG_SET_AZIMUTH:
+        audioTrack.setAzimuth((Double) message);
+        break;
+
+      case C.MSG_SET_VOLUME_MATRIX:
+        audioTrack.setVolumeMatrix((double[][])message);
+        break;
+
       case C.MSG_SET_VOLUME:
         audioTrack.setVolume((Float) message);
         break;
