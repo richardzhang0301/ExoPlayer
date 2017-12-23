@@ -724,7 +724,7 @@ Log.i("AVProVideoExoPlayer", "Create AVProVideoExoPlayer");
 
     //Hear360 Spatial
     private boolean hasAudioTracksSelected = false;
-    private double initialAzimuth = 0;
+    private double initialAzimuth =  Math.PI;
     private double currentAzimuth = 0;
     private int audioTracksCount = 0;
 
@@ -746,14 +746,15 @@ Log.i("AVProVideoExoPlayer", "Create AVProVideoExoPlayer");
     private void updateHeadForHear360(float x, float y, float z, float w)
     {
         //double azimuth = 1;
-        double azimuth = getAzimuthFromQuat(x, y, z, w);
-
+        double azimuth = -getAzimuthFromQuat(x, y, z, w);
+/*
         if(initialAzimuth == 0)
         {
             initialAzimuth = azimuth;
         }
         else
         {
+        */
             double relativeAzimuth = azimuth - initialAzimuth;
             //Log.i("PlayerActivity", "relativeAzimuth:" + Math.toDegrees(relativeAzimuth));
             if(relativeAzimuth > Math.PI)
@@ -782,7 +783,7 @@ Log.i("AVProVideoExoPlayer", "Create AVProVideoExoPlayer");
 
                 //System.exit(1);
             }
-        }
+        //}
     }
 
     //Swap z and y because in Unity y is upwards
