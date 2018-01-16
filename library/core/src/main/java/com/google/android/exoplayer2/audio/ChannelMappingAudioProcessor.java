@@ -18,6 +18,8 @@ package com.google.android.exoplayer2.audio;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.C.Encoding;
 import com.google.android.exoplayer2.Format;
+import com.google.android.exoplayer2.util.Util;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
@@ -63,33 +65,35 @@ import java.util.Arrays;
   @Override
   public boolean configure(int sampleRateHz, int channelCount, @Encoding int encoding)
           throws UnhandledFormatException {
-    /*
-    boolean outputChannelsChanged = !Arrays.equals(pendingOutputChannels, outputChannels);
-    outputChannels = pendingOutputChannels;
-    if (outputChannels == null) {
-      active = false;
-      return outputChannelsChanged;
-    }
-    if (encoding != C.ENCODING_PCM_16BIT) {
-      throw new UnhandledFormatException(sampleRateHz, channelCount, encoding);
-    }
-    if (!outputChannelsChanged && this.sampleRateHz == sampleRateHz
-        && this.channelCount == channelCount) {
-      return false;
-    }
-    */
-    this.sampleRateHz = sampleRateHz;
-    this.channelCount = channelCount;
-/*
-    active = channelCount != outputChannels.length;
-    for (int i = 0; i < outputChannels.length; i++) {
-      int channelIndex = outputChannels[i];
-      if (channelIndex >= channelCount) {
+    if(!Util.HEAR360_HPS) {
+      boolean outputChannelsChanged = !Arrays.equals(pendingOutputChannels, outputChannels);
+      outputChannels = pendingOutputChannels;
+      if (outputChannels == null) {
+        active = false;
+        return outputChannelsChanged;
+      }
+      if (encoding != C.ENCODING_PCM_16BIT) {
         throw new UnhandledFormatException(sampleRateHz, channelCount, encoding);
       }
-      active |= (channelIndex != i);
+      if (!outputChannelsChanged && this.sampleRateHz == sampleRateHz
+          && this.channelCount == channelCount) {
+        return false;
+      }
     }
-*/
+
+    this.sampleRateHz = sampleRateHz;
+    this.channelCount = channelCount;
+
+    if(!Util.HEAR360_HPS) {
+      active = channelCount != outputChannels.length;
+      for (int i = 0; i < outputChannels.length; i++) {
+        int channelIndex = outputChannels[i];
+        if (channelIndex >= channelCount) {
+          throw new UnhandledFormatException(sampleRateHz, channelCount, encoding);
+        }
+        active |= (channelIndex != i);
+      }
+    }
     active = true;
 
     return true;
@@ -102,8 +106,12 @@ import java.util.Arrays;
 
   @Override
   public int getOutputChannelCount() {
-    //return outputChannels == null ? channelCount : outputChannels.length;
-    return DEFAULT_CHANNEL_COUNT;
+    if(!Util.HEAR360_HPS) {
+      return outputChannels == null ? channelCount : outputChannels.length;
+    }
+    else {
+      return DEFAULT_CHANNEL_COUNT;
+    }
   }
 
   @Override
@@ -116,23 +124,33 @@ import java.util.Arrays;
     int position = inputBuffer.position();
     int limit = inputBuffer.limit();
     int frameCount = (limit - position) / (2 * channelCount);
-    int outputSize = frameCount * DEFAULT_CHANNEL_COUNT * 2;
-    //int outputSize = frameCount * outputChannels.length * 2;
+    int outputSize;
+    if(Util.HEAR360_HPS) {
+      outputSize = frameCount * DEFAULT_CHANNEL_COUNT * 2;
+    }
+    else {
+      outputSize = frameCount * outputChannels.length * 2;
+    }
     if (buffer.capacity() < outputSize) {
       buffer = ByteBuffer.allocateDirect(outputSize).order(ByteOrder.nativeOrder());
     } else {
       buffer.clear();
     }
     while (position < limit) {
-      for (int channelIndex = 0; channelIndex < channelCount; channelIndex++) {
-        //for (int channelIndex : outputChannels) {
-        buffer.putShort(inputBuffer.getShort(position + 2 * channelIndex));
+      if(!Util.HEAR360_HPS) {
+        for (int channelIndex : outputChannels) {
+          buffer.putShort(inputBuffer.getShort(position + 2 * channelIndex));
+        }
       }
+      else {
+        for (int channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+          buffer.putShort(inputBuffer.getShort(position + 2 * channelIndex));
+        }
 
-      for(int channelIndex = channelCount; channelIndex < DEFAULT_CHANNEL_COUNT; channelIndex++) {
-        buffer.putShort((short)0);
+        for (int channelIndex = channelCount; channelIndex < DEFAULT_CHANNEL_COUNT; channelIndex++) {
+          buffer.putShort((short) 0);
+        }
       }
-
       position += channelCount * 2;
     }
     inputBuffer.position(limit);
