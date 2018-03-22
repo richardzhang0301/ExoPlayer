@@ -1,18 +1,3 @@
-/*
- * Copyright (C) 2017 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package com.google.android.exoplayer2.audio;
 
 import com.google.android.exoplayer2.C;
@@ -20,12 +5,18 @@ import com.google.android.exoplayer2.Format;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Arrays;
+
+/**
+ * Created by Richard on 9/21/17.
+ */
 
 /**
  * An {@link AudioProcessor} that converts audio data to {@link C#ENCODING_PCM_16BIT}.
  */
-/* package */ final class EightBallAudioProcessor implements AudioProcessor {
+/* package */ final class FOAAudioProcessor implements AudioProcessor {
+
+  private static final int MAX_CHANNEL_COUNT = 8;
+  private final int DEFAULT_CHANNEL_COUNT = 8;
 
   private int sampleRateHz;
   private int channelCount;
@@ -36,22 +27,25 @@ import java.util.Arrays;
   private ByteBuffer outputBuffer;
   private boolean inputEnded;
 
-  private float volumeFront;
-  private float volumeLeft;
-  private float volumeBack;
-  private float volumeRight;
-
+  private static double azimuth;
   private static final Object azimuthLock = new Object();
 
+  private static double[][] volumeMatrix = new double[MAX_CHANNEL_COUNT][MAX_CHANNEL_COUNT];
+  //    private double[] speakerPos = new double[MAX_CHANNEL_COUNT];
+//    private Vector3d[] speakerVec = new Vector3d[MAX_CHANNEL_COUNT];
+//    private Vector3d[] rotatedSpeakerVec = new Vector3d[MAX_CHANNEL_COUNT];
+  private static final Object rotatedSpeakerVecLock = new Object();
   /**
    * Creates a new audio processor that converts audio data to {@link C#ENCODING_PCM_16BIT}.
    */
-  public EightBallAudioProcessor() {
+  public FOAAudioProcessor() {
     sampleRateHz = Format.NO_VALUE;
     channelCount = Format.NO_VALUE;
     encoding = C.ENCODING_INVALID;
     buffer = EMPTY_BUFFER;
     outputBuffer = EMPTY_BUFFER;
+
+    //azimuth = Math.toRadians(45);
   }
 
   @Override
@@ -82,7 +76,7 @@ import java.util.Arrays;
   @Override
   public boolean isActive() {
     //return false;
-    return encoding != C.ENCODING_INVALID && (channelCount == 8 || channelCount == 4);
+    return encoding != C.ENCODING_INVALID && channelCount == DEFAULT_CHANNEL_COUNT;
   }
 
   @Override
@@ -97,94 +91,41 @@ import java.util.Arrays;
 
   @Override
   public void queueInput(ByteBuffer inputBuffer) {
+    double fuck = Math.toDegrees(azimuth);
+    //double[][] volumeMatrix = new double[MAX_CHANNEL_COUNT][MAX_CHANNEL_COUNT];
+
+    //updateVolumeMatrix(volumeMatrix);
+
     // Prepare the output buffer.
     int position = inputBuffer.position();
     int limit = inputBuffer.limit();
     int frameCount = (limit - position) / (2 * channelCount);
     //8 in 8 out
-    int outputSize = frameCount * channelCount * 2;
+    int outputSize = frameCount * DEFAULT_CHANNEL_COUNT * 2;
     //int outputSize = frameCount * outputChannels.length * 2;
     if (buffer.capacity() < outputSize) {
       buffer = ByteBuffer.allocateDirect(outputSize).order(ByteOrder.nativeOrder());
     } else {
       buffer.clear();
     }
+    while (position < limit) {
+      //The channel order of Opus (FL, C, FR, SL, SR, RL, RR, LFE) is different than Mp4 (L, R, C, LFE, RL, RR, SL, SR)
+      //float front =
 
-    if(channelCount == 8) {
-      while (position < limit) {
-        //The channel order of Opus (FL, C, FR, SL, SR, RL, RR, LFE) is different than Mp4 (L, R, C, LFE, RL, RR, SL, SR)
-        //Front Perspective
-        short inputFrontL = inputBuffer.getShort(position + 2 * 0);
-        short inputFrontR = inputBuffer.getShort(position + 2 * 2);
+//      for(int outIndex = 0; outIndex < channelCount; outIndex++) {
+//        short output = 0;
 
-        //Left Perspective
-        short inputLeftL = inputBuffer.getShort(position + 2 * 1);
-        short inputLeftR = inputBuffer.getShort(position + 2 * 7);
+//        for(int inIndex = 0; inIndex < channelCount; inIndex++) {
+//          short input = inputBuffer.getShort(position + 2 * inIndex);
+//          short mixedInput = (short)(input * volumeMatrix[inIndex][outIndex]);
+//          output += mixedInput;
+//        }
+//        buffer.putShort(output);
+//      }
 
-        //Back Perspective
-        short inputBackL = inputBuffer.getShort(position + 2 * 5);
-        short inputBackR = inputBuffer.getShort(position + 2 * 6);
-
-        //Right Perspective
-        short inputRightL = inputBuffer.getShort(position + 2 * 3);
-        short inputRightR = inputBuffer.getShort(position + 2 * 4);
-
-        //Mix from all perspectives
-        short l = (short) (((float) inputFrontL * volumeFront + (float) inputLeftL * volumeLeft + (float) inputBackL * volumeBack + (float) inputRightL * volumeRight) * 0.707f);
-        short r = (short) (((float) inputFrontR * volumeFront + (float) inputLeftR * volumeLeft + (float) inputBackR * volumeBack + (float) inputRightR * volumeRight) * 0.707f);
-
-        //Write the mixed stereo to the first 2 channels as the output
-        buffer.putShort(l);
-        buffer.putShort(r);
-
-        //Pad with 0 for all the other channels
-        buffer.putShort((short) 0);
-        buffer.putShort((short) 0);
-        buffer.putShort((short) 0);
-        buffer.putShort((short) 0);
-        buffer.putShort((short) 0);
-        buffer.putShort((short) 0);
-
-        //(8byte per 8bits)16bit in total, multiple by 8 channels
-        position += channelCount * 2;
-      }
+      //(8byte per 8bits)16bit in total, multiple by 8 channels
+      position += channelCount * 2;
     }
-    else if(channelCount == 4) {
-      while (position < limit) {
-        //The 4 channel order of Opus is the same as MP4 (front left, front right, rear left, rear right )
-        //Front Perspective
-        short inputFrontL = inputBuffer.getShort(position + 2 * 0);
-        short inputFrontR = inputBuffer.getShort(position + 2 * 1);
-
-        //Left Perspective
-        short inputLeftL = inputBuffer.getShort(position + 2 * 2);
-        short inputLeftR = inputBuffer.getShort(position + 2 * 3);
-
-        //Back Perspective
-        short inputBackL = inputBuffer.getShort(position + 2 * 1);
-        short inputBackR = inputBuffer.getShort(position + 2 * 0);
-
-        //Right Perspective
-        short inputRightL = inputBuffer.getShort(position + 2 * 3);
-        short inputRightR = inputBuffer.getShort(position + 2 * 2);
-
-        //Mix from all perspectives
-        short l = (short) (((float) inputFrontL * volumeFront + (float) inputLeftL * volumeLeft + (float) inputBackL * volumeBack + (float) inputRightL * volumeRight) * 0.707f);
-        short r = (short) (((float) inputFrontR * volumeFront + (float) inputLeftR * volumeLeft + (float) inputBackR * volumeBack + (float) inputRightR * volumeRight) * 0.707f);
-
-        //Write the mixed stereo to the first 2 channels as the output
-        buffer.putShort(l);
-        buffer.putShort(r);
-
-        //Pad with 0 for all the other channels
-        buffer.putShort((short) 0);
-        buffer.putShort((short) 0);
-
-        //(8byte per 8bits)16bit in total, multiple by 8 channels
-        position += channelCount * 2;
-      }
-    }
-
     inputBuffer.position(limit);
     buffer.flip();
     outputBuffer = buffer;
@@ -223,14 +164,7 @@ import java.util.Arrays;
     encoding = C.ENCODING_INVALID;
   }
 
-  public void set8BallVolume(float[] volumes) {
-    //Channel order is the as SamsungVR (Front, Left, Back, Right)
-    synchronized (azimuthLock) {
-      volumeFront = volumes[0];
-      volumeLeft = volumes[1];
-      volumeBack = volumes[2];
-      volumeRight = volumes[3];
-    }
+  public void setAzimuth(double azimuth) {
+    this.azimuth = -azimuth;
   }
-
 }

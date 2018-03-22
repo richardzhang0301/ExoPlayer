@@ -61,7 +61,8 @@ import java.util.regex.Pattern;
  */
 public final class Util {
 
-  public static final boolean HEAR360_HPS = false;
+  public static final boolean HEAR360_HPS = true;
+  public static final boolean HEAR360_FOA = true;
 
   /**
    * Like {@link android.os.Build.VERSION#SDK_INT}, but in a place where it can be conveniently

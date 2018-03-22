@@ -143,12 +143,71 @@ import java.util.Arrays;
         }
       }
       else {
-        for (int channelIndex = 0; channelIndex < channelCount; channelIndex++) {
-          buffer.putShort(inputBuffer.getShort(position + 2 * channelIndex));
-        }
+        //1st order Ambisonic
+        if(channelCount == 4) {
+          float w = (float)(inputBuffer.getShort(position + 2 * 0) / 2);
+          float y = (float)(inputBuffer.getShort(position + 2 * 1) / 2);
+          float z = (float)(inputBuffer.getShort(position + 2 * 2) / 2);
+          float x = (float)(inputBuffer.getShort(position + 2 * 3) / 2);
 
-        for (int channelIndex = channelCount; channelIndex < DEFAULT_CHANNEL_COUNT; channelIndex++) {
-          buffer.putShort((short) 0);
+          buffer.putShort((short)w);
+          buffer.putShort((short)y);
+          buffer.putShort((short)0);
+          buffer.putShort((short)0);
+          buffer.putShort((short)z);
+          buffer.putShort((short)x);
+          buffer.putShort((short)0);
+          buffer.putShort((short)0);
+
+//          short lf = (short)((0.30052038200428266f * w + 0.405f * y + 0.36f * x) / 4);
+//          short rf = (short)((0.30052038200428266f * w - 0.405f * y + 0.36f * x) / 4);
+//          short lb = (short)((0.33234018715767727f * w + 0.415f * y - 0.33f * x) / 4);
+//          short rb = (short)((0.33234018715767727f * w - 0.415f * y - 0.33f * x) / 4);
+//          short c = (short)((0.1414213562373095f * w + 0.f * y + 0.16f * x) / 4);
+
+//          short lf = (short)((0.30308181575488646f * w + 0.28787490443249214f * y + 0.34272772121390443f * x) / 4);
+//          short rf = (short)((0.30308181575488646f * w - 0.28787490443249214f * y + 0.34272772121390443f * x) / 4);
+//          short ls = (short)((0.30009778241942736f * w + 0.37430033313047179f * y - 0.0523422745233887f * x) / 4);
+//          short rs = (short)((0.30009778241942736f * w - 0.37430033313047179f * y - 0.0523422745233887f * x) / 4);
+//          short lb = (short)((0.25945829376797824f * w + 0.15979898864340947f * y - 0.35198623716283389f * x) / 4);
+//          short rb = (short)((0.25945829376797824f * w - 0.15979898864340947f * y - 0.35198623716283389f * x) / 4);
+//          short c = (short)((0.06626228564058137f * w + 0.095210812676599921f * y) / 4);
+
+//          short l = (short)(0.5f * w + 0.5 * y);
+//          short r = (short)(0.5f * w - 0.5 * y);
+//          short lf = (short)((1.414f * w + x + y) / 2.8284f / 4);
+//          short lb = (short)((1.414f * w - x + y) / 2.8284f / 4);
+//          short rb = (short)((1.414f * w - x - y) / 2.8284f / 4);
+//          short rf = (short)((1.414f * w + x - y) / 2.8284f / 4);
+//
+//          buffer.putShort(lf);
+//          buffer.putShort(rf);
+//          buffer.putShort((short)0);
+//          buffer.putShort((short)0);
+//          buffer.putShort(lb);
+//          buffer.putShort(rb);
+//          buffer.putShort((short)0);
+//          buffer.putShort((short)0);
+//          buffer.putShort(ls);
+//          buffer.putShort(rs);
+
+//          buffer.putShort((short)0);
+//          buffer.putShort((short)0);
+//          buffer.putShort((short)0);
+//          buffer.putShort((short)0);
+//          buffer.putShort((short)0);
+//          buffer.putShort((short)0);
+//          buffer.putShort(l);
+//          buffer.putShort(r);
+        }
+        else {
+          for (int channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+            buffer.putShort(inputBuffer.getShort(position + 2 * channelIndex));
+          }
+
+          for (int channelIndex = channelCount; channelIndex < DEFAULT_CHANNEL_COUNT; channelIndex++) {
+            buffer.putShort((short) 0);
+          }
         }
       }
       position += channelCount * 2;
