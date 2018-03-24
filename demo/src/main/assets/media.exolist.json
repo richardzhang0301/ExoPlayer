@@ -31,6 +31,22 @@
         "uri": "http://hear360.co/DartKEAC348k.mp4"
       },
       {
+        "name": "MajorLazer Ambi to 5.1 (MP4, 5.1 AAC)",
+        "uri": "http://192.168.86.36:8090/MajorLazerAmbiTo51.mp4"
+      },
+      {
+        "name": "MajorLazer Ambi to 4.0 (MP4, 4.0 AAC)",
+        "uri": "http://192.168.86.36:8090/MajorLazerAmbiToQuad.mp4"
+      },
+      {
+        "name": "MajorLazer Ambisonic (MP4, 4.0 AAC)",
+        "uri": "https://hear360.co/MajorLazerAmbi.mp4"
+      },
+      {
+        "name": "MajorLazer 8Ball (VP8, 8.0 Opus)",
+        "uri": "http://hear360.co/MajorLazerVorbis.webm"
+      },
+      {
         "name": "Google Glass (MP4,H264)",
         "uri": "http://www.youtube.com/api/manifest/dash/id/bf5bb2419360daf1/source/youtube?as=fmp4_audio_clear,fmp4_sd_hd_clear&sparams=ip,ipbits,expire,source,id,as&ip=0.0.0.0&ipbits=0&expire=19000000000&signature=51AF5F39AB0CEC3E5497CD9C900EBFEAECCCB5C7.8506521BFC350652163895D4C26DEE124209AA9E&key=ik0",
         "extension": "mpd"
