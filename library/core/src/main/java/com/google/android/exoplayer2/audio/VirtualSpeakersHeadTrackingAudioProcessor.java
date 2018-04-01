@@ -16,7 +16,8 @@ import java.nio.ByteOrder;
 /* package */ final class VirtualSpeakersHeadTrackingAudioProcessor implements AudioProcessor {
 
     private static final int MAX_CHANNEL_COUNT = 8;
-    private final int DEFAULT_CHANNEL_COUNT = 8;
+    private static final int DEFAULT_CHANNEL_COUNT = 8;
+    private static final double FRACTION_STEP = 0.1;
 
     private int sampleRateHz;
     private int channelCount;
@@ -31,6 +32,10 @@ import java.nio.ByteOrder;
     private static final Object azimuthLock = new Object();
 
     private static double[][] volumeMatrix = new double[MAX_CHANNEL_COUNT][MAX_CHANNEL_COUNT];
+    private static double[][] curVolumeMatrix = new double[MAX_CHANNEL_COUNT][MAX_CHANNEL_COUNT];
+    private static double[][] prevVolumeMatrix = new double[MAX_CHANNEL_COUNT][MAX_CHANNEL_COUNT];
+    private static double[][] interpolatedMatrix = new double[MAX_CHANNEL_COUNT][MAX_CHANNEL_COUNT];
+
     //    private double[] speakerPos = new double[MAX_CHANNEL_COUNT];
 //    private Vector3d[] speakerVec = new Vector3d[MAX_CHANNEL_COUNT];
 //    private Vector3d[] rotatedSpeakerVec = new Vector3d[MAX_CHANNEL_COUNT];
@@ -92,9 +97,10 @@ import java.nio.ByteOrder;
     @Override
     public void queueInput(ByteBuffer inputBuffer) {
         double fuck = Math.toDegrees(azimuth);
-        //double[][] volumeMatrix = new double[MAX_CHANNEL_COUNT][MAX_CHANNEL_COUNT];
 
         //updateVolumeMatrix(volumeMatrix);
+
+        copyVolumeMatrix(volumeMatrix, curVolumeMatrix);
 
         // Prepare the output buffer.
         int position = inputBuffer.position();
@@ -109,12 +115,15 @@ import java.nio.ByteOrder;
             buffer.clear();
         }
         while (position < limit) {
+            smoothMatrix(interpolatedMatrix, curVolumeMatrix);
+            //interpolateMatrix(prevVolumeMatrix, curVolumeMatrix, interpolatedMatrix, position / limit);
+
             //The channel order of Opus (FL, C, FR, SL, SR, RL, RR, LFE) is different than Mp4 (L, R, C, LFE, RL, RR, SL, SR)
             for(int outIndex = 0; outIndex < channelCount; outIndex++) {
                 short output = 0;
                 for(int inIndex = 0; inIndex < channelCount; inIndex++) {
                     short input = inputBuffer.getShort(position + 2 * inIndex);
-                    short mixedInput = (short)(input * volumeMatrix[inIndex][outIndex]);
+                    short mixedInput = (short)(input * interpolatedMatrix[inIndex][outIndex]);
                     output += mixedInput;
                 }
                 buffer.putShort(output);
@@ -126,6 +135,8 @@ import java.nio.ByteOrder;
         inputBuffer.position(limit);
         buffer.flip();
         outputBuffer = buffer;
+
+        //copyVolumeMatrix(curVolumeMatrix, prevVolumeMatrix);
     }
 
     @Override
@@ -178,5 +189,34 @@ import java.nio.ByteOrder;
             }
         }
         //}
+    }
+
+    public void copyVolumeMatrix(double[][] fromMatrix, double[][] toMatrix) {
+        for(int i = 0; i < MAX_CHANNEL_COUNT; i++) {
+            for(int j = 0; j < MAX_CHANNEL_COUNT; j++) {
+                toMatrix[i][j] = fromMatrix[i][j];
+//                if(toMatrix[i][j] < 0) {
+//                    double a = 3;
+//                    a++;
+//                    break;
+//                }
+            }
+        }
+    }
+
+    public void interpolateMatrix(double[][] fromMatrix, double[][] toMatrix, double[][] midMatrix, double alpha) {
+        for(int i = 0; i < MAX_CHANNEL_COUNT; i++) {
+            for(int j = 0; j < MAX_CHANNEL_COUNT; j++) {
+                midMatrix[i][j] = fromMatrix[i][j] * (1 - alpha) + toMatrix[i][j] * alpha;
+            }
+        }
+    }
+
+    public void smoothMatrix(double[][] midMatrix, double[][] toMatrix) {
+        for(int i = 0; i < MAX_CHANNEL_COUNT; i++) {
+            for (int j = 0; j < MAX_CHANNEL_COUNT; j++) {
+                midMatrix[i][j] += FRACTION_STEP * (toMatrix[i][j] - midMatrix[i][j]);
+            }
+        }
     }
 }
