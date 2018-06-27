@@ -36,7 +36,7 @@ import java.util.Locale;
  */
 public final class DebugTextViewHelper implements Runnable, Player.EventListener {
 
-  private static final int REFRESH_INTERVAL_MS = 1000;
+  private static final int REFRESH_INTERVAL_MS = 16;
 
   private final SimpleExoPlayer player;
   private final TextView textView;

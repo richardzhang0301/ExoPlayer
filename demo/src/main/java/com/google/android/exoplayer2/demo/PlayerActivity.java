@@ -156,6 +156,9 @@ public class PlayerActivity extends Activity implements OnClickListener, EventLi
   private final Vector3d FRONT_VEC = new Vector3d(0, 0, 1);
 
   private double[][] volumeMatrix = new double[MAX_CHANNEL_COUNT][MAX_CHANNEL_COUNT];
+  private double[] speakerPos = new double[MAX_CHANNEL_COUNT];
+  private Vector3d[] speakerVec = new Vector3d[MAX_CHANNEL_COUNT];
+  private Vector3d[] rotatedSpeakerVec = new Vector3d[MAX_CHANNEL_COUNT];
 
   public class DegreeDiff {
     public double dotValue;
@@ -201,12 +204,14 @@ public class PlayerActivity extends Activity implements OnClickListener, EventLi
             if(player != null && player.getPlaybackState() == STATE_READY && trackSelector != null)
             {
               //Update 8 channels' volume according to the detected azimuth
-              update8BallVolumes(currentAzimuth);
+              update8BallVolumes(-currentAzimuth);
               updateVolumeMatrix(-currentAzimuth, volumeMatrix);
               player.setVolumeMatrix(volumeMatrix);
               //player.setAzimuth(azimuth);
               debugViewHelper.setAzimuth(-currentAzimuth);
               debugViewHelper.setVolumeMatrix(volumeMatrix);
+
+              Log.i("DSP", "AzimuthRetrieved: " + currentAzimuth + ", at " + System.currentTimeMillis());
             }
           }
           break;
@@ -266,32 +271,13 @@ public class PlayerActivity extends Activity implements OnClickListener, EventLi
       player.set8BallVolume(volumes);
       player.setAzimuth(azimuth);
 
-      Log.i("PlayerActivity", "azimuth:" + Math.toDegrees(azimuth) + ", front:" + frontVol + ", right:" + rightVol + ", backVol:" + backVol + ", leftVol:" + leftVol);
+      //Log.i("PlayerActivity", "azimuth:" + Math.toDegrees(azimuth) + ", front:" + frontVol + ", right:" + rightVol + ", backVol:" + backVol + ", leftVol:" + leftVol);
     }
 
     private void updateVolumeMatrix(double azimuth, double[][] volumeMatrix) {
-      double[] speakerPos = new double[MAX_CHANNEL_COUNT];
-      Vector3d[] speakerVec = new Vector3d[MAX_CHANNEL_COUNT];
-      Vector3d[] rotatedSpeakerVec = new Vector3d[MAX_CHANNEL_COUNT];
 
       Vector3d rotatedFrontVec = rotate(azimuth, FRONT_VEC);
-/*
-        speakerPos[0] = Math.toRadians(-30);
-        speakerPos[1] = Math.toRadians(30);
-        speakerPos[2] = Math.toRadians(0);
-        speakerPos[3] = Math.toRadians(0);
-        speakerPos[4] = Math.toRadians(-120);
-        speakerPos[5] = Math.toRadians(120);
-*/
 
-      speakerPos[0] = Math.toRadians(-45);
-      speakerPos[1] = Math.toRadians(45);
-      speakerPos[2] = Math.toRadians(0);
-      speakerPos[3] = Math.toRadians(0);
-      speakerPos[4] = Math.toRadians(-135);
-      speakerPos[5] = Math.toRadians(135);
-      speakerPos[6] = Math.toRadians(-90);
-      speakerPos[7] = Math.toRadians(90);
 
       for(int i = 0; i < DEFAULT_CHANNEL_COUNT; i++) {
         speakerVec[i] = rotate(speakerPos[i], FRONT_VEC);
@@ -449,6 +435,25 @@ public class PlayerActivity extends Activity implements OnClickListener, EventLi
   @Override
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+
+    /*
+        speakerPos[0] = Math.toRadians(-30);
+        speakerPos[1] = Math.toRadians(30);
+        speakerPos[2] = Math.toRadians(0);
+        speakerPos[3] = Math.toRadians(0);
+        speakerPos[4] = Math.toRadians(-120);
+        speakerPos[5] = Math.toRadians(120);
+*/
+
+    speakerPos[0] = Math.toRadians(-45);
+    speakerPos[1] = Math.toRadians(45);
+    speakerPos[2] = Math.toRadians(0);
+    speakerPos[3] = Math.toRadians(0);
+    speakerPos[4] = Math.toRadians(-135);
+    speakerPos[5] = Math.toRadians(135);
+    speakerPos[6] = Math.toRadians(-90);
+    speakerPos[7] = Math.toRadians(90);
+
     shouldAutoPlay = true;
     clearResumePosition();
     mediaDataSourceFactory = buildDataSourceFactory(true);

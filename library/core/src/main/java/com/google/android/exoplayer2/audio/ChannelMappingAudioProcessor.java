@@ -94,7 +94,7 @@ import java.util.Arrays;
         active |= (channelIndex != i);
       }
     }
-    active = true;
+    active = false;
 
     return true;
   }

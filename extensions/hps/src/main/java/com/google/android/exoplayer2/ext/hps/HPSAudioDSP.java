@@ -22,34 +22,38 @@ package com.google.android.exoplayer2.ext.hps;
  */
 public final class HPSAudioDSP {
 
-  private final long nativeDSPContext;
+  private final long dspContext;
   private float[] inputBuf;
+  //private float[] htBuf;
   private float[] outputBuf;
+  private float[] volumeMatrix;
 
   public HPSAudioDSP(int samplerate) {
-    nativeDSPContext = createInstance(samplerate);
+    dspContext = Hear360HPSCreateInstance(samplerate);
 
     inputBuf = new float[30000];
+    //htBuf = new float[30000];
     outputBuf = new float[30000];
+    volumeMatrix = new float[64];
   }
 
   public void release() {
-    if(nativeDSPContext != 0) {
-      deleteInstance(nativeDSPContext);
+    if(dspContext != 0) {
+      Hear360HPSDeleteInstance(dspContext);
     }
   }
 
-  public void LoadIRsJava(int presetID) {
-    loadIRs(nativeDSPContext, presetID);
-  }
-
-  public int ProcessInPlaceInterleavedFloat(float[] pBuf, int srcChannels, long totalsamples, boolean hpsEnabled, boolean warmEQEnabled) {
-    processInPlaceInterleaved(nativeDSPContext, pBuf, srcChannels, totalsamples, hpsEnabled, warmEQEnabled);
+  public int ProcessInPlaceInterleavedFloat(float azimuth, float[] pBuf, int srcChannels, boolean stereoUpMix51, long totalsamples, boolean hpsEnabled, boolean warmEQEnabled) {
+    Hear360HPSProcessInPlaceInterleaved(dspContext, azimuth, pBuf, srcChannels, stereoUpMix51, totalsamples);
+    //HPSHRIRFolddownProcessInPlaceInterleaved(nativeDSPContext, pBuf, srcChannels, totalsamples, hpsEnabled, warmEQEnabled);
     return 0;
   }
 
-  public int ProcessOutOfPlaceInterleavedFloat(float[] pInBuf, float[] pOutBuf, int srcChannels, long totalsamples, boolean hpsEnabled, boolean warmEQEnabled) {
-    processOutOfPlaceInterleaved(nativeDSPContext, pInBuf, pOutBuf, srcChannels, totalsamples, hpsEnabled, warmEQEnabled);
+  public int ProcessOutOfPlaceInterleavedFloat(float azimuth, float[] pInBuf, float[] pOutBuf, int srcChannels, int dstChannels, boolean stereoUpMix51, long totalsamples, boolean hpsEnabled, boolean warmEQEnabled) {
+    GetVolumeMatrix();
+
+    Hear360HPSProcessOutOfPlaceInterleaved(dspContext, azimuth, pInBuf, pOutBuf, srcChannels, dstChannels, stereoUpMix51, totalsamples);
+
     return 0;
   }
 
@@ -59,7 +63,7 @@ public final class HPSAudioDSP {
     }
 
     int result = 0;
-    processInPlaceInterleaved(nativeDSPContext, inputBuf, srcChannels, totalsamples, hpsEnabled, warmEQEnabled);
+    //HPSHRIRFolddownProcessInPlaceInterleaved(nativeDSPContext, inputBuf, srcChannels, totalsamples, hpsEnabled, warmEQEnabled);
 
     for(int i = 0; i < pShortBuf.length; i++) {
       inputBuf[i] = (float)pShortBuf[i] * 32767.0f;
@@ -74,7 +78,7 @@ public final class HPSAudioDSP {
     }
 
     int result = 0;
-    processOutOfPlaceInterleaved(nativeDSPContext, inputBuf, outputBuf, srcChannels, totalsamples, hpsEnabled, warmEQEnabled);
+    //HPSHRIRFolddownProcessOutOfPlaceInterleaved(nativeDSPContext, inputBuf, outputBuf, srcChannels, totalsamples, hpsEnabled, warmEQEnabled);
 
     for(int i = 0; i < pOutShortBuf.length; i++) {
       outputBuf[i] = (float)pOutShortBuf[i] * 32767.0f;
@@ -83,9 +87,25 @@ public final class HPSAudioDSP {
     return result;
   }
 
-  private native long createInstance(int samplerate);
-  private native int deleteInstance(long handle);
-  private native void loadIRs(long handle, int presetID);
-  private native int processInPlaceInterleaved(long handle, float[] pBuf, int srcChannels, long totalsamples, boolean hpsEnabled, boolean warmEQEnabled);
-  private native int processOutOfPlaceInterleaved(long handle, float[] pInBuf, float[] pOutBuf, int srcChannels, long totalsamples, boolean hpsEnabled, boolean warmEQEnabled);
+  public void GetVolumeMatrix() {
+    Hear360HPSGetVolumeMatrix(dspContext, volumeMatrix);
+    return;
+  }
+
+  private native long HPSHRIRFolddownCreateInstance(int samplerate);
+  private native int HPSHRIRFolddownDeleteInstance(long handle);
+  private native void HPSHRIRFolddownLoadIRs(long handle, int presetID);
+  private native int HPSHRIRFolddownProcessInPlaceInterleaved(long handle, float[] pBuf, int srcChannels, long totalsamples, boolean hpsEnabled, boolean warmEQEnabled);
+  private native int HPSHRIRFolddownProcessOutOfPlaceInterleaved(long handle, float[] pInBuf, float[] pOutBuf, int srcChannels, int dstChannels, long totalsamples, boolean hpsEnabled, boolean warmEQEnabled);
+
+  private native void HPSHeadtrackingGetVolumeMatrix(long handle, float[] outVolumeMatrix);
+  private native long HPSHeadtrackingCreateInstance(int samplerate);
+  private native int HPSHeadtrackingDeleteInstance(long handle);
+  private native int HPSHeadtrackingProcessOutOfPlaceInterleaved(long handle, float azimuth, float[] pInBuf, float[] pOutBuf, int srcChannels, long totalsamples);
+
+  private native void Hear360HPSGetVolumeMatrix(long handle, float[] outVolumeMatrix);
+  private native long Hear360HPSCreateInstance(int samplerate);
+  private native int Hear360HPSDeleteInstance(long handle);
+  private native int Hear360HPSProcessOutOfPlaceInterleaved(long handle, float azimuth, float[] pInBuf, float[] pOutBuf, int srcChannels, int dstChannels, boolean stereoUpMix51, long totalsamples);
+  private native int Hear360HPSProcessInPlaceInterleaved(long handle, float azimuth, float[] pBuf, int srcChannels, boolean stereoUpMix51, long totalsamples);
 }

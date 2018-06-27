@@ -1,5 +1,7 @@
 package com.google.android.exoplayer2.audio;
 
+import android.util.Log;
+
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.Format;
 
@@ -26,7 +28,9 @@ import java.nio.ByteOrder;
     private int channelCount;
 
     private HPSLibrary hpsLibrary;
-    private HPSAudioDSP hpsAudioDSP;
+    private static HPSAudioDSP hpsAudioDSP;
+
+    private static final Object azimuthLock = new Object();
 
     @C.PcmEncoding
     private int encoding;
@@ -34,10 +38,10 @@ import java.nio.ByteOrder;
     private ByteBuffer outputBuffer;
     private boolean inputEnded;
 
+    private static double azimuth = 0;
+
     private float[] inputBuf;
     private float[] outputBuf;
-
-    private final int DEFAULT_CHANNEL_COUNT = 8;
 
     /**
      * Creates a new audio processor that converts audio data to {@link C#ENCODING_PCM_16BIT}.
@@ -78,7 +82,6 @@ import java.nio.ByteOrder;
         this.encoding = encoding;
 
         hpsAudioDSP = new HPSAudioDSP(sampleRateHz);
-        hpsAudioDSP.LoadIRsJava(0);
 
         return true;
     }
@@ -86,7 +89,7 @@ import java.nio.ByteOrder;
     @Override
     public boolean isActive() {
         //return false;
-        return encoding != C.ENCODING_INVALID && channelCount == DEFAULT_CHANNEL_COUNT;
+        return encoding != C.ENCODING_INVALID;
     }
 
     @Override
@@ -106,8 +109,7 @@ import java.nio.ByteOrder;
         int limit = inputBuffer.limit();
         int frameCount = (limit - position) / (2 * channelCount);
         //6 in 6 out
-        int outputSize = frameCount * DEFAULT_CHANNEL_COUNT * 2;
-        //int outputSize = frameCount * outputChannels.length * 2;
+        int outputSize = frameCount * channelCount * 2;
         if (buffer.capacity() < outputSize) {
             buffer = ByteBuffer.allocateDirect(outputSize).order(ByteOrder.nativeOrder());
         } else {
@@ -118,31 +120,30 @@ import java.nio.ByteOrder;
         while (position < limit) {
             short input = inputBuffer.getShort(position);
             inputBuf[fBufIndex++] = (float)input / 32767.0f;
-
             //(8byte per 8bits)16bit in total, multiple by 8 channels
             position += 2;
         }
 
         if(frameCount != 0) {
             //hpsAudioDSP.ProcessInPlaceInterleavedFloat(inputBuf, channelCount, frameCount, true, true);
-            hpsAudioDSP.ProcessOutOfPlaceInterleavedFloat(inputBuf, outputBuf, channelCount, frameCount, true, true);
+            hpsAudioDSP.ProcessOutOfPlaceInterleavedFloat((float) azimuth, inputBuf, outputBuf, channelCount, channelCount, true, frameCount, true, true);
         }
 
         for(int i = 0; i < frameCount; i++) {
-            short inputFrontL = (short)(outputBuf[i * channelCount] * 32767.0f / 3.0f);
-            short inputFrontR = (short)(outputBuf[i * channelCount + 1] * 32767.0f / 3.0f);
+            float l = outputBuf[i * channelCount] / 4.5f;
+            float r = outputBuf[i * channelCount + 1] / 4.5f;
+
+            short inputFrontL = (short)(l * 32767.0f);
+            short inputFrontR = (short)(r * 32767.0f);
 
             //Write the mixed stereo to the first 2 channels as the output
             buffer.putShort(inputFrontL);
             buffer.putShort(inputFrontR);
 
             //Pad with 0 for all the other channels
-            buffer.putShort((short)0);
-            buffer.putShort((short)0);
-            buffer.putShort((short)0);
-            buffer.putShort((short)0);
-            buffer.putShort((short)0);
-            buffer.putShort((short)0);
+            for(int j = 2; j < channelCount; j++) {
+                buffer.putShort((short)0);
+            }
         }
 
         inputBuffer.position(limit);
@@ -181,5 +182,12 @@ import java.nio.ByteOrder;
         sampleRateHz = Format.NO_VALUE;
         channelCount = Format.NO_VALUE;
         encoding = C.ENCODING_INVALID;
+    }
+
+    public void setAzimuth(double azimuth) {
+        //synchronized (azimuthLock) {
+            this.azimuth = azimuth;
+            Log.i("DSP", "AzimuthSet: " + azimuth + ", at " + System.currentTimeMillis());
+        //}
     }
 }

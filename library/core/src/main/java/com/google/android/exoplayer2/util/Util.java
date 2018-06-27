@@ -61,7 +61,7 @@ import java.util.regex.Pattern;
  */
 public final class Util {
 
-  public static final boolean HEAR360_HPS = false;
+  public static final boolean HEAR360_HPS = true;
   public static final boolean HEAR360_FOA = false;
 
   /**

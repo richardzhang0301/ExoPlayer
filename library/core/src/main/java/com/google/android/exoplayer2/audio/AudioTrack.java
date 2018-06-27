@@ -281,7 +281,7 @@ public final class AudioTrack {
   private final ChannelMappingAudioProcessor channelMappingAudioProcessor;
   private final HPSAudioProcessor hpsAudioProcessor;
   private final EightBallAudioProcessor eightBallAudioProcessor;
-  private final VirtualSpeakersHeadTrackingAudioProcessor virtualSpeakersHeadTrackingAudioProcessor;
+  //private final VirtualSpeakersHeadTrackingAudioProcessor virtualSpeakersHeadTrackingAudioProcessor;
   private final SonicAudioProcessor sonicAudioProcessor;
   private final AudioProcessor[] availableAudioProcessors;
   private final Listener listener;
@@ -379,23 +379,23 @@ public final class AudioTrack {
     channelMappingAudioProcessor = new ChannelMappingAudioProcessor();
     hpsAudioProcessor = new HPSAudioProcessor();
     eightBallAudioProcessor = new EightBallAudioProcessor();
-    virtualSpeakersHeadTrackingAudioProcessor = new VirtualSpeakersHeadTrackingAudioProcessor();
+    //virtualSpeakersHeadTrackingAudioProcessor = new VirtualSpeakersHeadTrackingAudioProcessor();
     sonicAudioProcessor = new SonicAudioProcessor();
     //From 3 audio processors to 4 (Added 8Ball processor)
     //From 4 audio processors to 5 (Added Virtual Speaker Head Tracking processor)
     //From 5 audio processors to 6 (Added HPS processor)
     if(Util.HEAR360_HPS) {
-      availableAudioProcessors = new AudioProcessor[5 + audioProcessors.length];
+      availableAudioProcessors = new AudioProcessor[4 + audioProcessors.length];
       availableAudioProcessors[0] = new ResamplingAudioProcessor();
       availableAudioProcessors[1] = channelMappingAudioProcessor;
       //Added the 8Ball processor to the DSP chain of the current audio track
       //availableAudioProcessors[2] = eightBallAudioProcessor;
-      availableAudioProcessors[2] = virtualSpeakersHeadTrackingAudioProcessor;
-      availableAudioProcessors[3] = hpsAudioProcessor;
+      //availableAudioProcessors[2] = virtualSpeakersHeadTrackingAudioProcessor;
+      availableAudioProcessors[2] = hpsAudioProcessor;
       //The 3rd audio processor becomes the 4rd one
       //The 4rd audio processor becomes the 5rd one
-      System.arraycopy(audioProcessors, 0, availableAudioProcessors, 4, audioProcessors.length);
-      availableAudioProcessors[4 + audioProcessors.length] = sonicAudioProcessor;
+      System.arraycopy(audioProcessors, 0, availableAudioProcessors, 3, audioProcessors.length);
+      availableAudioProcessors[3 + audioProcessors.length] = sonicAudioProcessor;
     }
     else {
       availableAudioProcessors = new AudioProcessor[4 + audioProcessors.length];
@@ -1102,17 +1102,22 @@ public final class AudioTrack {
   }
 
   public void setAzimuth(double azimuth) {
+    if(hpsAudioProcessor != null) {
+      hpsAudioProcessor.setAzimuth(azimuth);
+    }
+    /*
     if(virtualSpeakersHeadTrackingAudioProcessor != null) {
       virtualSpeakersHeadTrackingAudioProcessor.setAzimuth(azimuth);
     }
+    */
   }
-
+/*
   public void setVolumeMatrix(double[][] volumeMatrix) {
     if(virtualSpeakersHeadTrackingAudioProcessor != null) {
       virtualSpeakersHeadTrackingAudioProcessor.setVolumeMatrix(volumeMatrix);
     }
   }
-
+*/
   /**
    * Sets the playback volume.
    *

@@ -412,7 +412,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         break;
 
       case C.MSG_SET_VOLUME_MATRIX:
-        audioTrack.setVolumeMatrix((double[][])message);
+        //audioTrack.setVolumeMatrix((double[][])message);
         break;
 
       case C.MSG_SET_VOLUME:

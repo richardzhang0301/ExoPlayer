@@ -735,6 +735,9 @@ Log.i("AVProVideoExoPlayer", "Create AVProVideoExoPlayer");
     private final Vector3d FRONT_VEC = new Vector3d(0, 0, 1);
 
     private double[][] volumeMatrix = new double[MAX_CHANNEL_COUNT][MAX_CHANNEL_COUNT];
+    private double[] speakerPos = new double[MAX_CHANNEL_COUNT];
+    private Vector3d[] speakerVec = new Vector3d[MAX_CHANNEL_COUNT];
+    private Vector3d[] rotatedSpeakerVec = new Vector3d[MAX_CHANNEL_COUNT];
 
     public class DegreeDiff {
         public double dotValue;
@@ -755,7 +758,7 @@ Log.i("AVProVideoExoPlayer", "Create AVProVideoExoPlayer");
         else
         {
         */
-            double relativeAzimuth = azimuth - initialAzimuth;
+            double relativeAzimuth = azimuth;// - initialAzimuth;
             //Log.i("PlayerActivity", "relativeAzimuth:" + Math.toDegrees(relativeAzimuth));
             if(relativeAzimuth > Math.PI)
             {
@@ -782,6 +785,8 @@ Log.i("AVProVideoExoPlayer", "Create AVProVideoExoPlayer");
                 //debugViewHelper.setVolumeMatrix(volumeMatrix);
 
                 //System.exit(1);
+
+                Log.i("DSP", "AzimuthRetrieved: " + currentAzimuth + ", at " + System.currentTimeMillis());
             }
         //}
     }
@@ -838,13 +843,11 @@ Log.i("AVProVideoExoPlayer", "Create AVProVideoExoPlayer");
         this.m_ExoPlayer.set8BallVolume(volumes);
         this.m_ExoPlayer.setAzimuth(azimuth);
 
-        Log.i("PlayerActivity", "azimuth:" + Math.toDegrees(azimuth) + ", front:" + frontVol + ", right:" + rightVol + ", backVol:" + backVol + ", leftVol:" + leftVol);
+        //Log.i("PlayerActivity", "azimuth:" + Math.toDegrees(azimuth) + ", front:" + frontVol + ", right:" + rightVol + ", backVol:" + backVol + ", leftVol:" + leftVol);
     }
 
     private void updateVolumeMatrix(double azimuth, double[][] volumeMatrix) {
-        double[] speakerPos = new double[MAX_CHANNEL_COUNT];
-        Vector3d[] speakerVec = new Vector3d[MAX_CHANNEL_COUNT];
-        Vector3d[] rotatedSpeakerVec = new Vector3d[MAX_CHANNEL_COUNT];
+
 
         Vector3d rotatedFrontVec = rotate(azimuth, FRONT_VEC);
 /*
